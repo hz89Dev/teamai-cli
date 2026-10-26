@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { getUserHome, expandHome } from './utils/home.js';
 import { log } from './utils/logger.js';
 import { realHost, toolHome } from './tool-home.js';
+import { channelsOf } from './tools.js';
 import type { WorkspaceChildren } from './workspace-children.js';
 import type { HeadState } from './utils/git.js';
 import { AllowSchema } from './workflow/requirements.js';
@@ -590,8 +591,7 @@ export const DEFAULT_TOOL_PATHS = {
   // from AGENTS.md/CLAUDE.md walking up the workspace tree. Hooks are
   // TypeScript extensions rather than a settings hook list, so the adapter
   // keeps one user extension and forwards the active cwd to hook-dispatch.
-  // MCP and model profiles follow PI_CODING_AGENT_DIR; hooks stay at the
-  // default agent dir until their callers move to locate. Pi reads no rules
+  // MCP, model profiles and the extension follow PI_CODING_AGENT_DIR. Pi reads no rules
   // directory: its user team rules are a block in ~/.pi/agent/AGENTS.md, and
   // in a project teamai's extension adds them to the system prompt (#946).
   pi: {
@@ -3218,16 +3218,11 @@ export function resolveHookScope(
   };
 }
 
-/** ZCode reads CLI hooks only from HOME, including in self/project mode. */
-export function hookSettingsPath(tool: string, baseDir: string, settings: string): string {
-  return path.join(tool === 'zcode' ? getUserHome() : baseDir, settings);
-}
-
-/** Hook paths follow their delivery scope; ZCode's CLI config is always user scoped. */
+/** Hook paths follow their delivery scope; a tool that takes its user hooks in self mode too (`HooksChannels.self`, ZCode's CLI) keeps its user ones. */
 export function hookToolPathsForConfig(teamConfig: TeamaiConfig, localConfig: LocalConfig): TeamaiConfig['toolPaths'] {
   const paths = scopedToolPaths(teamConfig, { ...localConfig, scope: resolveHookScope(localConfig).scope });
-  const zcode = scopedToolPaths(teamConfig, { ...localConfig, scope: 'user' }).zcode;
-  return zcode ? { ...paths, zcode } : paths;
+  const user = scopedToolPaths(teamConfig, { ...localConfig, scope: 'user' });
+  return Object.fromEntries(Object.entries(paths).map(([tool, scoped]) => [tool, channelsOf(tool).hooks.self === 'user' ? user[tool] ?? scoped : scoped]));
 }
 
 /**

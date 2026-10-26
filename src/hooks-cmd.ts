@@ -1,4 +1,5 @@
-import { hookSettingsPath, hookToolPathsForConfig } from './types.js';
+import { hookToolPathsForConfig } from './types.js';
+import { hookAdapterDir, hookSettingsFile } from './locate.js';
 import path from 'node:path';
 import { autoDetectInit } from './config.js';
 import { codexTrustPolicy, migrateLegacyManagedHooks, reconcileHooks, reconcileHooksToAllTools, reconcileTeamHooksForConfig, removeCopilotGlobalBuiltins, sweepLegacyProjectHooks, getHookStatus, reportCodexTrust, resolveMainCheckoutHooks, trustCodexForScope, type HookStatus } from './hooks.js';
@@ -18,7 +19,7 @@ import {
 } from './types.js';
 import { getUserHome } from './utils/home.js';
 import { pathExists } from './utils/fs.js';
-import { hasPiHooks, removePiHooks, resolvePiExtensionsDir, PI_HOOK_FILE } from './pi-hooks.js';
+import { hasPiHooks, removePiHooks, PI_HOOK_FILE } from './pi-hooks.js';
 
 type HookListStatus = HookStatus | 'not configured';
 
@@ -67,14 +68,14 @@ function formatHooksList(rows: HookListRow[]): string {
  */
 async function adapterHookArtifacts(tool: string): Promise<string[] | null> {
     if (tool === 'omp') {
-        const { resolveOmpExtensionsDir, OMP_HOOK_FILE } = await import('./omp-hooks.js');
-        return [path.join(resolveOmpExtensionsDir(), OMP_HOOK_FILE)];
+        const { OMP_HOOK_FILE } = await import('./omp-hooks.js');
+        return [path.join(hookAdapterDir('omp-extension'), OMP_HOOK_FILE)];
     }
     if (tool === 'opencode') {
         // reconcileOpencodePlugin always installs the single plugin under the
         // user path, whatever the config scope, so probe there.
-        const { resolveOpencodePluginDir, OPENCODE_HOOK_FILE } = await import('./opencode-hooks.js');
-        return [path.join(resolveOpencodePluginDir(getUserHome(), 'user'), OPENCODE_HOOK_FILE)];
+        const { OPENCODE_HOOK_FILE } = await import('./opencode-hooks.js');
+        return [path.join(hookAdapterDir('opencode-plugin'), OPENCODE_HOOK_FILE)];
     }
     if (tool === 'hermes') {
         const { getReportScriptPath } = await import('./hermes-hooks.js');
@@ -167,7 +168,7 @@ export async function hooksList(_options: GlobalOptions): Promise<void> {
     for (const [tool, paths] of Object.entries(scopedToolPaths(teamConfig, localConfig))) {
         if (isAgentExcluded(localConfig, tool)) continue;
         if (tool === 'pi') {
-            const hookPath = path.join(resolvePiExtensionsDir(), PI_HOOK_FILE);
+            const hookPath = path.join(hookAdapterDir('pi-extension'), PI_HOOK_FILE);
             rows.push({
                 tool,
                 status: await hasPiHooks() ? 'installed' : 'missing',
@@ -179,7 +180,7 @@ export async function hooksList(_options: GlobalOptions): Promise<void> {
         const hookPath = hookScopedPaths[tool]?.hooks
             ? path.join(resolveToolBaseDir(tool, { ...localConfig, scope: hookScope }), hookScopedPaths[tool]?.hooks ?? paths.hooks)
             : hookScopedPaths[tool]?.settings
-                ? hookSettingsPath(tool, baseDir, hookScopedPaths[tool].settings)
+                ? hookSettingsFile(tool, baseDir, hookScopedPaths[tool].settings)
                 : undefined;
         if (hookPath) {
             if (seenSettingsFiles.has(hookPath)) continue;

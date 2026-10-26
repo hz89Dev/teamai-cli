@@ -1,4 +1,4 @@
-import { hookSettingsPath, hookToolPathsForConfig } from './types.js';
+import { hookToolPathsForConfig } from './types.js';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { detectProjectConfig, loadLocalConfig, loadTeamConfig } from './config.js';
@@ -26,7 +26,7 @@ import {
   installScopeName,
 } from './types.js';
 import { isToolInstalledForConfig } from './resources/base.js';
-import { installOf, locate, writable } from './locate.js';
+import { hookSettingsFile, installOf, locate, writable } from './locate.js';
 import { samePlace } from './resources/places.js';
 import { describeInvalidToolHomes, envToolHome, realHost, reloadToolHomes, toolHomesPath } from './tool-home.js';
 import { isToolId } from './tools.js';
@@ -357,7 +357,7 @@ async function buildHookChecks(
     const hookPath = hookToolPaths[tool]?.hooks
       ? path.join(resolveToolBaseDir(tool, { ...localConfig, scope: resolveHookScope(localConfig).scope }), hookToolPaths[tool]?.hooks ?? paths.hooks)
       : settings
-        ? hookSettingsPath(tool, baseDir, settings)
+        ? hookSettingsFile(tool, baseDir, settings)
         : undefined;
     if (!hookPath) continue;
     const settingsPath = hookPath;

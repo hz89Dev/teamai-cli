@@ -15,6 +15,7 @@ vi.mock('../utils/fs.js', () => ({
   expandHome: (p: string) => p,
   ensureDir: vi.fn(),
   pathExists: vi.fn(async () => true),
+  readFileSafe: vi.fn(async () => null),
 }));
 
 vi.mock('../utils/logger.js', () => ({

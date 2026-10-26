@@ -32,8 +32,13 @@ describe('resolveOpencodePluginDir', () => {
   it('project scope → <base>/.opencode/plugin', () => {
     expect(resolveOpencodePluginDir('/repo', 'project')).toBe(path.join('/repo', '.opencode', 'plugin'));
   });
-  it('user scope → <base>/.config/opencode/plugin', () => {
-    expect(resolveOpencodePluginDir('/home/u', 'user')).toBe(path.join('/home/u', '.config', 'opencode', 'plugin'));
+  it('user scope → the plugin directory of OpenCode\'s config home, which XDG_CONFIG_HOME moves', () => {
+    vi.stubEnv('XDG_CONFIG_HOME', '');
+    vi.stubEnv('OPENCODE_CONFIG_DIR', '');
+    expect(resolveOpencodePluginDir('/elsewhere', 'user')).toBe(path.join(os.homedir(), '.config', 'opencode', 'plugin'));
+    vi.stubEnv('XDG_CONFIG_HOME', path.join(os.tmpdir(), 'xdg'));
+    expect(resolveOpencodePluginDir('/elsewhere', 'user')).toBe(path.join(os.tmpdir(), 'xdg', 'opencode', 'plugin'));
+    vi.unstubAllEnvs();
   });
 });
 
@@ -230,8 +235,8 @@ describe('buildAgentHookPluginSource is valid JS across event kinds and tricky c
 
 describe('injectOpencodeHooks / removeOpencodeHooks', () => {
   let tmp: string;
-  beforeEach(async () => { tmp = await fse.mkdtemp(path.join(os.tmpdir(), 'teamai-oc-hooks-')); });
-  afterEach(async () => { await fse.remove(tmp); });
+  beforeEach(async () => { tmp = await fse.mkdtemp(path.join(os.tmpdir(), 'teamai-oc-hooks-')); vi.stubEnv('HOME', tmp); });
+  afterEach(async () => { vi.unstubAllEnvs(); await fse.remove(tmp); });
 
   it('project scope writes .opencode/plugin/teamai-hooks.ts', async () => {
     await injectOpencodeHooks(tmp, 'project');
@@ -289,8 +294,8 @@ describe('injectOpencodeHooks / removeOpencodeHooks', () => {
 
 describe('agent-hook plugins', () => {
   let tmp: string;
-  beforeEach(async () => { tmp = await fse.mkdtemp(path.join(os.tmpdir(), 'teamai-oc-ah-')); });
-  afterEach(async () => { await fse.remove(tmp); });
+  beforeEach(async () => { tmp = await fse.mkdtemp(path.join(os.tmpdir(), 'teamai-oc-ah-')); vi.stubEnv('HOME', tmp); });
+  afterEach(async () => { vi.unstubAllEnvs(); await fse.remove(tmp); });
 
   it('installs a named plugin file for a supported event', async () => {
     await applyOpencodeAgentHook({ slug: 'my-hook', event: 'SessionStart', command: 'echo hi', baseDir: tmp, scope: 'user' });
@@ -618,6 +623,7 @@ describe('enterprise dual-host dispatch', () => {
 
   it('replaces an enterprise hook in place, then removes it', async () => {
     const tmp = await fse.mkdtemp(path.join(os.tmpdir(), 'teamai-oc-update-'));
+    vi.stubEnv('HOME', tmp);
     try {
       const def = { slug: 'update', event: 'SessionStart', baseDir: tmp, scope: 'user' as const };
       await applyOpencodeAgentHook({ ...def, command: 'echo old' });
@@ -627,7 +633,7 @@ describe('enterprise dual-host dispatch', () => {
       expect(await fse.readFile(path.join(dir, 'teamai-agent-update.ts'), 'utf8')).not.toContain('echo old');
       await removeOpencodeAgentHook(def);
       expect(await fse.readdir(dir)).toEqual([]);
-    } finally { await fse.remove(tmp); }
+    } finally { vi.unstubAllEnvs(); await fse.remove(tmp); }
   });
 });
 

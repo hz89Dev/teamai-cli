@@ -17,7 +17,6 @@ import {
   resolveLegacyProjectHookScope,
   resolveToolBaseDir,
   scopedToolPaths,
-  hookSettingsPath,
   hookToolPathsForConfig,
   toolGateRoot,
 } from './types.js';
@@ -52,6 +51,8 @@ import {
 import { codexDispatcherCheckouts, codexDispatcherProjects, dispatchedCodexHooks, isCodexTeamHookDispatcher, reconcileCodexDispatchers, runsFromCodexDispatcher, setCodexDispatcherHooks } from './codex-team-hooks.js';
 import type { CodexTeamHook } from './codex-team-hooks.js';
 import { hookFormatOf } from './tools.js';
+import { hookSettingsFile } from './locate.js';
+import { toolHome } from './tool-home.js';
 
 export { claudeHookOtherHostSkip };
 
@@ -2876,7 +2877,7 @@ async function reconcileOpencodePlugin(baseDir: string, removeAll = false, insta
     await removeOpencodeHooks(home, 'user');
     return;
   }
-  const homeInstalled = await pathExists(path.join(home, '.config', 'opencode'));
+  const homeInstalled = await pathExists(toolHome('opencode'));
   const projectInstalled = installedBaseDir
     ? await pathExists(path.join(installedBaseDir, '.opencode'))
     : false;
@@ -2908,9 +2909,9 @@ async function reconcileOmpExtension(removeAll = false): Promise<void> {
   }
 }
 
-/** True when Pi looks installed at the user or the resolved project root. */
+/** True when Pi looks installed at the user root, its moved agent directory, or the resolved project root. */
 async function isPiInstalled(baseDir: string, installedBaseDir?: string): Promise<boolean> {
-  return await pathExists(path.join(getUserHome(), '.pi'))
+  return await pathExists(path.join(getUserHome(), '.pi')) || await pathExists(toolHome('pi'))
     || await pathExists(path.join(installedBaseDir ?? baseDir, '.pi'));
 }
 
@@ -3001,9 +3002,9 @@ export async function injectHooksToAllTools(toolPaths: Record<string, { settings
         log.warn(`Failed to inject Pi hook: ${(e as Error).message}`);
       }
     } else if (paths.settings) {
-      const toolRoot = hookSettingsPath(tool, resolvedBaseDir, toolGateRoot(tool, paths.settings, toolRoots));
+      const toolRoot = hookSettingsFile(tool, resolvedBaseDir, toolGateRoot(tool, paths.settings, toolRoots));
       if (!await pathExists(toolRoot)) continue;
-      const settingsPath = hookSettingsPath(tool, resolvedBaseDir, paths.settings);
+      const settingsPath = hookSettingsFile(tool, resolvedBaseDir, paths.settings);
       try {
         await injectHooks(settingsPath, tool, codexTrust);
       } catch (e) {
@@ -3249,7 +3250,7 @@ export async function reconcileHooksToAllTools(
     // ensureDir — making uninstalled tools look installed and pulling skills
     // into them on later `pull`s.
     const gateRoot = toolGateRoot(tool, paths.settings, opts.toolRoots);
-    const toolRoot = opts.settingsOnly ? path.join(baseDir, gateRoot) : hookSettingsPath(tool, baseDir, gateRoot);
+    const toolRoot = opts.settingsOnly ? path.join(baseDir, gateRoot) : hookSettingsFile(tool, baseDir, gateRoot);
     const installedRoot = opts.installedBaseDir
       ? path.join(opts.installedBaseDir, gateRoot)
       : toolRoot;
@@ -3261,7 +3262,7 @@ export async function reconcileHooksToAllTools(
     // relocated. Do not recreate the missing HOME root just to remove them.
     if (!installed && !(opts.removeAll && mainFile)) continue;
     // A legacy-project sweep deliberately edits the old project file.
-    const settingsPath = opts.settingsOnly ? path.join(baseDir, paths.settings) : hookSettingsPath(tool, baseDir, paths.settings);
+    const settingsPath = opts.settingsOnly ? path.join(baseDir, paths.settings) : hookSettingsFile(tool, baseDir, paths.settings);
     const settingsFileKey = path.resolve(settingsPath);
     if (claimedSettingsFiles.has(settingsFileKey)) continue;
     claimedSettingsFiles.add(settingsFileKey);
@@ -3903,7 +3904,7 @@ export async function reconcileTeamHooksForConfig(
     && (!filterAgents || filterAgents.includes('zcode'))) {
     const legacyFile = path.join(baseDir, oldZcodeSettings);
     const homeSettings = hookToolPaths.zcode?.settings;
-    if (homeSettings && legacyFile !== hookSettingsPath('zcode', baseDir, homeSettings) && await pathExists(legacyFile)) {
+    if (homeSettings && legacyFile !== hookSettingsFile('zcode', baseDir, homeSettings) && await pathExists(legacyFile)) {
       await reconcileHooks(legacyFile, 'zcode', [], { manifestPath, removeAll: true, teamHookHistory: history });
     }
   }
