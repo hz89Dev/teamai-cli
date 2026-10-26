@@ -2902,7 +2902,8 @@ async function reconcileOpencodePlugin(baseDir: string, removeAll = false, insta
  * the moved file's pass, judged by the records that pass then replaces: a team
  * hook with no marker (Muse) whose record was replaced while the copy stayed
  * would be left there with nothing to name it. A copy that is the same file
- * through a link is left alone.
+ * through a link is left alone. A copy that cannot be cleaned throws, so the
+ * moved file's pass does not run either and the records stay for the retry.
  */
 async function clearEarlierHomeHooks(target: {
   baseDir: string; settings: string; current: string; tool: string; manifestPath: string;
@@ -2911,14 +2912,10 @@ async function clearEarlierHomeHooks(target: {
   const earlier = path.join(target.baseDir, target.settings);
   if (earlier === target.current || path.resolve(target.baseDir) !== path.resolve(getUserHome()) || !await pathExists(earlier)) return;
   if (await realpath(earlier).catch(() => earlier) === await realpath(target.current).catch(() => target.current)) return;
-  try {
-    await reconcileHooks(earlier, target.tool, [], {
-      manifestPath: target.manifestPath, removeAll: true, keepRecords: true, teamHookHistory: target.teamHookHistory,
-      ...(target.teamHookProjectRoot ? { teamHookProjectRoot: target.teamHookProjectRoot } : {}),
-    });
-  } catch (e) {
-    log.warn(`Could not remove the hooks an earlier release left in ${earlier}: ${(e as Error).message}`);
-  }
+  await reconcileHooks(earlier, target.tool, [], {
+    manifestPath: target.manifestPath, removeAll: true, keepRecords: true, teamHookHistory: target.teamHookHistory,
+    ...(target.teamHookProjectRoot ? { teamHookProjectRoot: target.teamHookProjectRoot } : {}),
+  });
 }
 
 /**

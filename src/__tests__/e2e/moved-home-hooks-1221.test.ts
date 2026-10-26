@@ -183,4 +183,20 @@ describe('hooks follow a moved CodeBuddy and OpenCode home (#1221, real CLI)', (
     expect(hasTeamHook(movedSettings)).toBe(false);
     expect(hasTeamHook(defaultSettings)).toBe(false);
   });
+
+  it('a pull leaves the moved hooks as they are while the default-home copy does not parse, so a retry still names the old hook', () => {
+    const { movedSettings, defaultSettings } = museTeamHook();
+    const hooksFile = path.join(home, '.teamai', 'team-repo', 'hooks', 'hooks.yaml');
+    fs.writeFileSync(hooksFile, fs.readFileSync(hooksFile, 'utf8').replace('echo company-check', 'echo company-check-v2'));
+    const intact = fs.readFileSync(defaultSettings, 'utf8');
+    fs.writeFileSync(defaultSettings, intact.trimEnd().slice(0, -1));
+
+    spawn('hooks', 'inject');
+    fs.writeFileSync(defaultSettings, intact);
+    run('hooks', 'inject');
+    run('hooks', 'remove');
+
+    expect(hasTeamHook(movedSettings)).toBe(false);
+    expect(hasTeamHook(defaultSettings)).toBe(false);
+  });
 });
