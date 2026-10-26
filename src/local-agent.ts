@@ -3719,9 +3719,6 @@ async function runHookRuleCommand(
   if (!tool) {
     throw new Error('install_hook_rule: missing current tool in context');
   }
-  if (!isAgentHookSupportedTool(tool)) {
-    throw new Error(`unsupported tool: ${tool}`);
-  }
   const slug = command.slug;
   if (!slug) {
     throw new Error(`${command.type}: missing slug`);
@@ -3752,7 +3749,10 @@ async function runHookRuleCommand(
     return undefined;
   }
 
-  // install_hook_rule
+  // install_hook_rule. Removal above acts on the tool the hook was installed for, whatever runs now.
+  if (!isAgentHookSupportedTool(tool)) {
+    throw new Error(`unsupported tool: ${tool}`);
+  }
   const event = command.event;
   const cmd = command.cmd;
   if (!event || !cmd) {

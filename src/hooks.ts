@@ -50,7 +50,7 @@ import {
 } from './codex-trust.js';
 import { codexDispatcherCheckouts, codexDispatcherProjects, dispatchedCodexHooks, isCodexTeamHookDispatcher, reconcileCodexDispatchers, runsFromCodexDispatcher, setCodexDispatcherHooks } from './codex-team-hooks.js';
 import type { CodexTeamHook } from './codex-team-hooks.js';
-import { channelsOf, hookFormatOf } from './tools.js';
+import { channelsOf, hookFormatOf, hookSettingsFormatOf, type HookAdapterId, type HookFormat } from './tools.js';
 import { earlierHookAdapterDir, hookSettingsFile } from './locate.js';
 import { toolHome } from './tool-home.js';
 
@@ -2409,13 +2409,25 @@ export interface AgentHookDef {
   timeout?: number;
 }
 
-/**
- * Return true if the tool supports agent hooks. All tools are supported except
- * cursor; each tool family dispatches to its own hook backend (settings.json for
- * claude/codex, config.yaml for hermes, HOOK.md + handler.ts for openclaw-family).
- */
+/** Which hook settings formats an agent hook is written in: a new format is refused until it is decided here. */
+const AGENT_HOOK_FORMATS: Readonly<Record<HookFormat, boolean>> = { claude: true, codex: true, cursor: false, copilot: false, zcode: false };
+/** Which hook adapters take an agent hook (local-agent.ts dispatches each): a new adapter is refused until it is decided here. */
+const AGENT_HOOK_ADAPTERS: Readonly<Record<HookAdapterId, boolean>> = {
+  'hermes-plugin': true, 'openclaw-hook': true, 'opencode-plugin': true, 'pi-extension': true, 'omp-extension': false, 'dsh-hooks': false,
+};
+
+/** Whether teamai installs an agent hook for `tool`, from its user-scope hook channel. */
 export function isAgentHookSupportedTool(tool: string): boolean {
-  return hookFormatOf(tool) !== 'cursor';
+  const channel = channelsOf(tool).hooks.user;
+  if (typeof channel !== 'object') return false;
+  switch (channel.channel) {
+    case 'settings': return AGENT_HOOK_FORMATS[channel.format];
+    case 'adapter': return AGENT_HOOK_ADAPTERS[channel.adapter];
+    default: {
+      const unhandled: never = channel;
+      return unhandled;
+    }
+  }
 }
 
 /**
@@ -3037,7 +3049,7 @@ export async function injectHooksToAllTools(toolPaths: Record<string, { settings
       } catch (e) {
         log.warn(`Failed to inject Pi hook: ${(e as Error).message}`);
       }
-    } else if (paths.settings) {
+    } else if (paths.settings && hookSettingsFormatOf(tool) !== null) {
       const toolRoot = hookSettingsFile(tool, resolvedBaseDir, toolGateRoot(tool, paths.settings, toolRoots));
       if (!await pathExists(toolRoot)) continue;
       const settingsPath = hookSettingsFile(tool, resolvedBaseDir, paths.settings);
@@ -3281,7 +3293,9 @@ export async function reconcileHooksToAllTools(
       }
       continue;
     }
-    if (!paths.settings) continue;
+    // A tool that reads no hook settings file gets none, whatever toolPaths names (#1221);
+    // removal still clears what an earlier release wrote there.
+    if (!paths.settings || (!opts.removeAll && hookSettingsFormatOf(tool) === null)) continue;
     // Only reconcile hooks for tools the user actually has installed. Without
     // this gate, `hooks inject`/`remove` would create root directories for
     // every configured tool (e.g. ~/.tclaude, ~/.tcodex) via reconcileHooks's

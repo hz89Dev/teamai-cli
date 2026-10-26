@@ -988,11 +988,16 @@ export function runTimeRulesOf(tool: string): RunTimeVia | null {
   }
 }
 
-/** The shape of `tool`'s hook file in either scope (`HookSettings.format`); Claude's for a tool with no settings channel, as for a custom tool. */
-export function hookFormatOf(tool: string): HookFormat {
+/** The format of `tool`'s hook settings file in either scope; null when it reads none (an adapter, `none` or `unknown`). A custom tool reads Claude's. */
+export function hookSettingsFormatOf(tool: string): HookFormat | null {
   const { hooks } = channelsOf(tool);
   for (const channel of [hooks.user, hooks.self]) if (typeof channel === 'object' && channel.channel === 'settings') return channel.format;
-  return 'claude';
+  return null;
+}
+
+/** The shape teamai reads and writes `tool`'s hook file in: its settings format, else Claude's, which the DeepSeek Harness adapter writes and an earlier release wrote for a tool that reads none. */
+export function hookFormatOf(tool: string): HookFormat {
+  return hookSettingsFormatOf(tool) ?? 'claude';
 }
 
 /** The format `tool`'s MCP servers take in either scope; null when it has an MCP channel in neither. */
