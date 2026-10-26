@@ -50,7 +50,7 @@ import {
 } from './codex-trust.js';
 import { codexDispatcherCheckouts, codexDispatcherProjects, dispatchedCodexHooks, isCodexTeamHookDispatcher, reconcileCodexDispatchers, runsFromCodexDispatcher, setCodexDispatcherHooks } from './codex-team-hooks.js';
 import type { CodexTeamHook } from './codex-team-hooks.js';
-import { hookFormatOf } from './tools.js';
+import { channelsOf, hookFormatOf } from './tools.js';
 import { hookSettingsFile } from './locate.js';
 import { toolHome } from './tool-home.js';
 
@@ -3269,6 +3269,8 @@ export async function reconcileHooksToAllTools(
     if (!installed && !(opts.removeAll && mainFile)) continue;
     // A legacy-project sweep deliberately edits the old project file.
     const settingsPath = opts.settingsOnly ? path.join(baseDir, paths.settings) : hookSettingsFile(tool, baseDir, paths.settings);
+    // A project install of a tool that keeps its user hooks (ZCode) shares the HOME file: it owns only its gated team hooks.
+    const homeHooks = channelsOf(tool).hooks.self === 'user' && opts.scope === 'project';
     const settingsFileKey = path.resolve(settingsPath);
     if (claimedSettingsFiles.has(settingsFileKey)) continue;
     claimedSettingsFiles.add(settingsFileKey);
@@ -3312,9 +3314,8 @@ export async function reconcileHooksToAllTools(
             manifestPath: teamManifestPath,
             removeAll: opts.removeAll,
             builtinOverride: opts.builtinOverride,
-            teamHookProjectRoot: tool === 'zcode' && opts.scope === 'project'
-              ? opts.installedBaseDir ?? baseDir : opts.teamHookProjectRoot,
-            ...(tool === 'zcode' && opts.scope === 'project' && opts.removeAll ? { teamOnly: true } : {}),
+            teamHookProjectRoot: homeHooks ? opts.installedBaseDir ?? baseDir : opts.teamHookProjectRoot,
+            ...(homeHooks && opts.removeAll ? { teamOnly: true } : {}),
             ...(opts.teamHookChildRoots ? { teamHookChildRoots: opts.teamHookChildRoots } : {}),
             heldTeamHookIds,
             teamHookHistory: opts.teamHookHistory,

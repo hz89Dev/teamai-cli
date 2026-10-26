@@ -70,6 +70,7 @@ import {
   skillsGuardBase,
 } from './builtin-skills.js';
 import { cleanupOf, hookAdapterDir, hookSettingsFile, installOf, locate, ownOf, SHARED_AGENT_SKILLS_PATH, writesOf, type Location } from './locate.js';
+import { channelsOf } from './tools.js';
 import { CODEX_TOOL_IDS } from './utils/tool-names.js';
 import { allowsSkillDirectory, CODEX_TOOL, describeOutsideSkillLink, skillOrigin } from './resources/skills.js';
 import { describeKeptDir, describeMembersDirLeft, isLink, keepsTrackedCopy, ownsSkillDir, teamaiSkillFiles } from './resources/delivered-copies.js';
@@ -924,13 +925,17 @@ async function buildRemovalPlan(
     ...(localConfig.scope === 'project' && !isSelfMode(localConfig) && localConfig.projectRoot
       ? { teamHookProjectRoot: localConfig.projectRoot } : {}),
   }];
-  // ZCode always reads HOME; a project removes only its gated team hooks.
-  const zcodeSettings = hookToolPathsForConfig(teamConfig, localConfig).zcode?.settings;
-  if (localConfig.scope === 'project' && localConfig.projectRoot && zcodeSettings) {
+  // A tool that keeps its user hooks in a project (ZCode) reads them from HOME; a project removes only its gated team hooks.
+  const hookPaths = hookToolPathsForConfig(teamConfig, localConfig);
+  const homeHookFile = (tool: string): string | null => {
+    const settings = channelsOf(tool).hooks.self === 'user' ? hookPaths[tool]?.settings : undefined;
+    return settings ? path.join(getUserHome(), settings) : null;
+  };
+  if (localConfig.scope === 'project' && localConfig.projectRoot && Object.keys(hookPaths).some((tool) => homeHookFile(tool) !== null)) {
     hookTargets.unshift({
       baseDir: getUserHome(), manifestPath: primaryHookScope.manifestPath,
       teamOnly: true, teamHookProjectRoot: localConfig.projectRoot,
-      fileFor: tool => tool === 'zcode' ? path.join(getUserHome(), zcodeSettings) : null,
+      fileFor: homeHookFile,
       teamHookHistory: hookHistory,
     });
   }
