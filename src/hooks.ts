@@ -51,7 +51,7 @@ import {
 import { codexDispatcherCheckouts, codexDispatcherProjects, dispatchedCodexHooks, isCodexTeamHookDispatcher, reconcileCodexDispatchers, runsFromCodexDispatcher, setCodexDispatcherHooks } from './codex-team-hooks.js';
 import type { CodexTeamHook } from './codex-team-hooks.js';
 import { channelsOf, hookFormatOf } from './tools.js';
-import { hookSettingsFile } from './locate.js';
+import { earlierHookAdapterDir, hookSettingsFile } from './locate.js';
 import { toolHome } from './tool-home.js';
 
 export { claudeHookOtherHostSkip };
@@ -2871,11 +2871,13 @@ export async function hasTeamaiHooks(
  * event twice. teamai therefore keeps exactly one copy, in the user plugin dir —
  * matching the settings.json hooks of every other tool, which also live in HOME
  * and gate on the `cwd` fed to `hook-dispatch`. Any project-scope copy left by
- * an earlier layout is deleted on the way through.
+ * an earlier layout is deleted on the way through, and so is the copy earlier
+ * releases left in the default home once the home moved: OpenCode 1.x loads that
+ * directory's plugins beside `OPENCODE_CONFIG_DIR`'s, deduping by file URL only.
  */
 async function reconcileOpencodePlugin(baseDir: string, removeAll = false, installedBaseDir?: string): Promise<void> {
   const home = getUserHome();
-  const { injectOpencodeHooks, removeOpencodeHooks } = await import('./opencode-hooks.js');
+  const { injectOpencodeHooks, removeOpencodeHooks, removeOpencodePlugin } = await import('./opencode-hooks.js');
   if (path.resolve(baseDir) !== path.resolve(home)) {
     await removeOpencodeHooks(baseDir, 'project');
   }
@@ -2889,6 +2891,8 @@ async function reconcileOpencodePlugin(baseDir: string, removeAll = false, insta
     : false;
   if (homeInstalled || projectInstalled) {
     await injectOpencodeHooks(home, 'user');
+    const earlier = earlierHookAdapterDir('opencode-plugin');
+    if (earlier) await removeOpencodePlugin(earlier);
   }
 }
 

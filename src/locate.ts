@@ -945,6 +945,12 @@ export function hookAdapterDir(adapter: Exclude<HookAdapterId, 'openclaw-hook'>,
   return adapterDirIn(adapter, (tool) => toolHome(tool, host), host);
 }
 
+/** Where earlier releases wrote `adapter`'s hook file, under its tool's default home, when the home has moved since; else null. */
+export function earlierHookAdapterDir(adapter: Exclude<HookAdapterId, 'openclaw-hook'>, host: Host = realHost()): string | null {
+  const dir = adapterDirIn(adapter, (tool) => defaultToolHome(tool, host), host);
+  return samePathOn(host.path, dir, hookAdapterDir(adapter, host)) ? null : dir;
+}
+
 function adapterDirIn(adapter: Exclude<HookAdapterId, 'openclaw-hook'>, homeOf: (tool: ToolId) => string, host: Host): string {
   const p = host.path;
   switch (adapter) {

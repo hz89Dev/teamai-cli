@@ -84,6 +84,21 @@ describe('hooks follow a moved CodeBuddy and OpenCode home (#1221, real CLI)', (
     expect(fs.existsSync(defaultPlugin)).toBe(false);
   });
 
+  // OpenCode 1.x loads the default config dir's plugins beside OPENCODE_CONFIG_DIR's, deduping by file URL only.
+  it('hooks inject leaves one OpenCode plugin, so OpenCode 1.x does not fire every event twice', () => {
+    const movedPlugin = path.join(sandbox, 'oc', 'plugin', 'teamai-hooks.ts');
+    const defaultPlugin = path.join(home, '.config', 'opencode', 'plugin', 'teamai-hooks.ts');
+    env = { ...env, XDG_CONFIG_HOME: '', OPENCODE_CONFIG_DIR: path.join(sandbox, 'oc') };
+    fs.mkdirSync(path.join(sandbox, 'oc'));
+    fs.mkdirSync(path.dirname(defaultPlugin), { recursive: true });
+    fs.writeFileSync(defaultPlugin, '// [teamai] hooks plugin, as an earlier release wrote it');
+
+    run('hooks', 'inject');
+
+    expect(fs.existsSync(movedPlugin)).toBe(true);
+    expect(fs.existsSync(defaultPlugin)).toBe(false);
+  });
+
   // A Muse team hook carries no marker: only its record names it, and an HTTP-backed team has no
   // hook history to recognize it by. Clearing one copy must not take the record the other needs.
   it.each(['uninstall --force', 'hooks remove'])('%s clears a Muse team hook from both homes with one record', (command) => {
