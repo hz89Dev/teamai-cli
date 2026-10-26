@@ -27,7 +27,7 @@ import { hookSourceMatches } from './utils/hook-source.js';
 import { writeFile, writeIfChanged, ensureDir, pathExists, readFileSafe, remove } from './utils/fs.js';
 import { probeBinary } from './utils/exec.js';
 import { log } from './utils/logger.js';
-import { hookAdapterDir } from './locate.js';
+import { earlierHookAdapterDir, hookAdapterDir } from './locate.js';
 import { toolHome } from './tool-home.js';
 import { isGitExcludeEnabled, type LocalConfig, type TeamaiConfig } from './types.js';
 import { resolveCliEntry } from './builtin-hooks.js';
@@ -562,6 +562,9 @@ export async function applyOpencodeAgentHook(def: {
   const file = path.join(dir, `teamai-agent-${def.slug}.ts`);
   await writeFile(file, buildAgentHookPluginSource(def.slug, ocEvent, def.command, def.matcher));
   log.success(`Installed OpenCode agent hook [${def.slug}] in ${file}`);
+  // OpenCode 1.x also loads the default home's plugins, where an earlier release wrote this one (#1221).
+  const earlier = def.scope === 'user' ? earlierHookAdapterDir('opencode-plugin') : null;
+  if (earlier) await remove(path.join(earlier, `teamai-agent-${def.slug}.ts`));
 }
 
 /** Remove a server-pushed agent-hook plugin file for OpenCode. */
@@ -571,9 +574,11 @@ export async function removeOpencodeAgentHook(opts: {
   scope: 'project' | 'user';
 }): Promise<void> {
   assertSafeSlug(opts.slug);
-  const dir = resolveOpencodePluginDir(opts.baseDir, opts.scope);
-  const file = path.join(dir, `teamai-agent-${opts.slug}.ts`);
-  if (await pathExists(file)) {
+  // And the copy an earlier release left under the default home (#1221).
+  const dirs = [resolveOpencodePluginDir(opts.baseDir, opts.scope), opts.scope === 'user' ? earlierHookAdapterDir('opencode-plugin') : null];
+  for (const dir of dirs) {
+    const file = dir === null ? null : path.join(dir, `teamai-agent-${opts.slug}.ts`);
+    if (file === null || !await pathExists(file)) continue;
     await remove(file);
     log.success(`Removed OpenCode agent hook [${opts.slug}] from ${file}`);
   }

@@ -23,7 +23,7 @@
 
 import path from 'node:path';
 import { generatedFileState, writeFile, writeIfChanged, ensureDir, remove } from './utils/fs.js';
-import { hookAdapterDir } from './locate.js';
+import { earlierHookAdapterDir, hookAdapterDir } from './locate.js';
 import { log } from './utils/logger.js';
 import { resolveCliEntry } from './builtin-hooks.js';
 
@@ -308,9 +308,12 @@ export async function applyPiAgentHook(def: {
 /** Remove one HTTP-source agent-hook extension. */
 export async function removePiAgentHook(slug: string): Promise<void> {
   assertSafeSlug(slug);
-  if (!await hasPiAgentHook(slug)) return;
-  await remove(piAgentHookFile(slug));
-  log.success(`Removed Pi agent hook [${slug}]`);
+  // And the copy an earlier release left under the default home, which Pi reads once its home stops moving (#1221).
+  for (const dir of [hookAdapterDir('pi-extension'), earlierHookAdapterDir('pi-extension')]) {
+    if (dir === null || !await hasPiAgentHook(slug, dir)) continue;
+    await remove(piAgentHookFile(slug, dir));
+    log.success(`Removed Pi agent hook [${slug}]`);
+  }
 }
 
 /** Check whether the extension in `extensionsDir`, by default the one Pi loads, has TeamAI's marker. */

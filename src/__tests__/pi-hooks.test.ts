@@ -148,6 +148,24 @@ describe('Pi hook extension', () => {
       .rejects.toThrow('Invalid Pi agent-hook slug');
   });
 
+  it('removes the agent-hook extension from a moved home and the copy an earlier release left in the default home (#1221)', async () => {
+    vi.stubEnv('PI_CODING_AGENT_DIR', path.join(tmp, 'pi-moved'));
+    try {
+      await applyPiAgentHook({ slug: 'scan', event: 'Stop', command: 'echo hooked' });
+      const moved = path.join(tmp, 'pi-moved', 'extensions', 'teamai-agent-scan.ts');
+      const earlier = path.join(tmp, '.pi', 'agent', 'extensions', 'teamai-agent-scan.ts');
+      await fse.ensureDir(path.dirname(earlier));
+      await fse.copy(moved, earlier);
+
+      await removePiAgentHook('scan');
+
+      expect(await fse.pathExists(moved)).toBe(false);
+      expect(await fse.pathExists(earlier)).toBe(false);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('does not overwrite or delete a same-named agent-hook file without the TeamAI marker, and rejects instead of skipping silently', async () => {
     const file = path.join(tmp, '.pi', 'agent', 'extensions', 'teamai-agent-scan.ts');
     await fse.ensureDir(path.dirname(file));

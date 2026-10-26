@@ -326,6 +326,26 @@ describe('agent-hook plugins', () => {
     expect(await fse.pathExists(file)).toBe(false);
   });
 
+  it('keeps one copy of an agent-hook plugin in a moved home, since OpenCode 1.x also loads the default one (#1221)', async () => {
+    vi.stubEnv('OPENCODE_CONFIG_DIR', path.join(tmp, 'oc-moved'));
+    try {
+      const earlier = path.join(tmp, '.config', 'opencode', 'plugin', 'teamai-agent-dup.ts');
+      const moved = path.join(tmp, 'oc-moved', 'plugin', 'teamai-agent-dup.ts');
+      await fse.outputFile(earlier, '// an earlier release wrote this');
+
+      await applyOpencodeAgentHook({ slug: 'dup', event: 'Stop', command: 'x', baseDir: tmp, scope: 'user' });
+      expect(await fse.pathExists(moved)).toBe(true);
+      expect(await fse.pathExists(earlier)).toBe(false);
+
+      await fse.outputFile(earlier, '// an earlier release wrote this');
+      await removeOpencodeAgentHook({ slug: 'dup', baseDir: tmp, scope: 'user' });
+      expect(await fse.pathExists(moved)).toBe(false);
+      expect(await fse.pathExists(earlier)).toBe(false);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('gates a matcher-scoped tool hook on the tool id (case-insensitive)', async () => {
     await applyOpencodeAgentHook({ slug: 'scoped', event: 'PostToolUse', command: 'x', baseDir: tmp, scope: 'user', matcher: 'Bash' });
     const content = await fse.readFile(path.join(tmp, '.config', 'opencode', 'plugin', 'teamai-agent-scoped.ts'), 'utf8');
