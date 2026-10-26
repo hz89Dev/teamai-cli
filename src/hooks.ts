@@ -1,4 +1,3 @@
-import { CODEX_TOOL_IDS } from './utils/tool-names.js';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
@@ -52,6 +51,7 @@ import {
 } from './codex-trust.js';
 import { codexDispatcherCheckouts, codexDispatcherProjects, dispatchedCodexHooks, isCodexTeamHookDispatcher, reconcileCodexDispatchers, runsFromCodexDispatcher, setCodexDispatcherHooks } from './codex-team-hooks.js';
 import type { CodexTeamHook } from './codex-team-hooks.js';
+import { hookFormatOf } from './tools.js';
 
 export { claudeHookOtherHostSkip };
 
@@ -203,25 +203,7 @@ interface ZcodeHooksJson {
 //  Reconcile is idempotent and only writes when content actually changes, so an
 //  upgraded CLI re-running over an already-injected file produces a zero-diff.
 
-type ToolFormat = 'claude' | 'cursor' | 'codex' | 'copilot' | 'zcode';
 export type HookStatus = 'installed' | 'missing';
-
-const CURSOR_TOOLS = new Set(['cursor']);
-/**
- * Tools whose hooks file takes Codex's shape: `{ hooks: { <Event>: [{ matcher?,
- * hooks: [{ type, command, timeout? }] }] } }` with no group `description`.
- * Muse Code reads that shape too, and drops any group carrying a key besides
- * `matcher` and `hooks`, so Claude's described groups never reach it.
- */
-const CODEX_FORMAT_TOOLS = new Set<string>([...CODEX_TOOL_IDS, MUSE_TOOL_ID]);
-const ZCODE_TOOLS = new Set(['zcode']);
-
-function detectFormat(tool: string): ToolFormat {
-  if (tool === COPILOT_TOOL_ID) return 'copilot';
-  if (CODEX_FORMAT_TOOLS.has(tool)) return 'codex';
-  if (ZCODE_TOOLS.has(tool)) return 'zcode';
-  return CURSOR_TOOLS.has(tool) ? 'cursor' : 'claude';
-}
 
 /**
  * Tools that enforce a user trust gate on non-managed hooks. Only the public
@@ -460,7 +442,7 @@ async function judgeUnrecordedTeamEntries(
   opts: ReconcileHooksOptions,
 ): Promise<UnrecordedTeamEntries> {
   const result: UnrecordedTeamEntries = { adopted: [], kept: [] };
-  const format = detectFormat(tool);
+  const format = hookFormatOf(tool);
   // A Claude file outside a project is swept by marker: every marked entry is teamai's already.
   if (!opts.teamHookHistory || (format === 'claude' && !opts.teamOnly && !opts.teamHookProjectRoot)) return result;
   const file = expandHome(settingsPath);
@@ -863,7 +845,7 @@ function heldEntryCheck(
   found: Map<ManagedHookRecord, string>,
   byMarker: boolean,
 ): HeldEntryCheck {
-  const format = detectFormat(tool);
+  const format = hookFormatOf(tool);
   const fileEvent = (event: string): string | undefined => format === 'cursor' ? CLAUDE_TO_CURSOR_EVENTS[event]
     : format === 'copilot' ? CLAUDE_TO_COPILOT_EVENTS[event] : event;
   const commandsOf = (entry: HookFileEntry): string[] => {
@@ -2426,7 +2408,7 @@ export interface AgentHookDef {
  * claude/codex, config.yaml for hermes, HOOK.md + handler.ts for openclaw-family).
  */
 export function isAgentHookSupportedTool(tool: string): boolean {
-  return !CURSOR_TOOLS.has(tool);
+  return hookFormatOf(tool) !== 'cursor';
 }
 
 /**
@@ -2465,7 +2447,7 @@ export async function applyAgentHook(
   def: AgentHookDef,
   codexTrust: CodexTrustPolicy,
 ): Promise<void> {
-  const format = detectFormat(tool);
+  const format = hookFormatOf(tool);
   // ZCode's strict schema rejects its whole config over a Claude-shaped `hooks` key (#1220).
   if (format === 'zcode') {
     throw new Error(`unsupported tool: ${tool} (agent hooks are not written in ZCode's hooks.events format)`);
@@ -2532,7 +2514,7 @@ export async function removeAgentHook(
 ): Promise<void> {
   const expanded = expandHome(settingsPath);
   if (!(await pathExists(expanded))) return;
-  const format = detectFormat(tool);
+  const format = hookFormatOf(tool);
 
   // Codex removal matches by command (no marker in the file); callers pass the
   // command recorded in the agent-hook manifest, which is the source of truth
@@ -2645,7 +2627,7 @@ export async function reconcileHooks(
   const desiredTeamCommands = new Set(scopedDefs.filter((d) => !d.tools || d.tools.includes(tool)).map((d) => d.command));
   const priorTeamCommands = new Set(priorRecords.map((r) => r.command));
 
-  const format = detectFormat(tool);
+  const format = hookFormatOf(tool);
   let codex: Awaited<ReturnType<typeof reconcileCodexFormat>> | undefined;
   if (format === 'cursor') {
     await reconcileCursorFormat(settingsPath, tool, scopedDefs, opts, priorTeamCommands, isHeld);
@@ -2729,7 +2711,7 @@ export async function getHookStatus(
   const expanded = expandHome(settingsPath);
   const defs = applyBuiltinOverride(builtinHookDefs(toolName), builtinOverride);
 
-  const format = detectFormat(toolName);
+  const format = hookFormatOf(toolName);
   if (format === 'cursor') {
     const hooksJson = await readJson<CursorHooksJson>(expanded);
     if (!hooksJson?.hooks) return 'missing';
@@ -2819,7 +2801,7 @@ export async function hasTeamaiHooks(
   const priorTeamCommands = new Set((manifest?.[tool] ?? []).map((r) => r.command));
 
   const expanded = expandHome(settingsPath);
-  const format = detectFormat(tool);
+  const format = hookFormatOf(tool);
 
   if (format === 'cursor') {
     const j = await readJson<CursorHooksJson>(expanded);
