@@ -26,7 +26,6 @@ import { AgentAdapter, ToolUnavailableError, type SessionMeta, type SessionReadR
 import type { Session, Message, ContentBlock } from '../ir.js';
 import { imagePlaceholderText } from '../ir.js';
 import {
-  getCursorProjectsDir,
   encodeCwdGeneric,
   decodeCwdGeneric,
   readJsonl,
@@ -36,6 +35,7 @@ import {
   dirExists,
   removeDirRecursive,
 } from '../fs.js';
+import { sessionStoreDir } from '../../locate.js';
 import { cleanTitleText, fallbackTitle, titleFromCandidates, titleFromUserText, isRenderableText, visibleUserText } from '../title.js';
 import { cursorComposerExists, registerCursorComposer, unregisterCursorComposer, type CursorComposerMessage, type CursorComposerTool } from '../cursor-store.js';
 import { assertSafeSessionFileId, deriveTargetSessionId } from '../ids.js';
@@ -129,11 +129,11 @@ export class CursorAdapter extends AgentAdapter {
   constructor(platform = 'cursor', storageRoot?: string) {
     super();
     this.platform = platform;
-    this.storageRoot = storageRoot ?? getCursorProjectsDir();
+    this.storageRoot = storageRoot ?? sessionStoreDir('cursor', undefined);
   }
 
   static isAvailable(): boolean {
-    return dirExists(getCursorProjectsDir());
+    return dirExists(sessionStoreDir('cursor', undefined));
   }
 
   isReady(): boolean {
@@ -141,7 +141,7 @@ export class CursorAdapter extends AgentAdapter {
   }
 
   static getDefaultStoragePath(): string {
-    return getCursorProjectsDir();
+    return sessionStoreDir('cursor', undefined);
   }
 
   private resolveProjectDir(projectPath?: string): string {

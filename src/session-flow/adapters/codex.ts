@@ -51,7 +51,6 @@ import { execCommand, probeBinary } from '../../utils/exec.js';
 import { isOnPath } from '../../utils/lookpath.js';
 import { desktopCodexBinaries } from '../../codex-desktop.js';
 import {
-  getCodexSessionsDir,
   resolveRealCwd,
   readJsonl,
   readJsonlHead,
@@ -60,6 +59,7 @@ import {
   dirExists,
   scanFiles,
 } from '../fs.js';
+import { sessionStoreDir } from '../../locate.js';
 
 // ---------------------------------------------------------------------------
 // Tool-name normalization map
@@ -258,15 +258,15 @@ export class CodexAdapter extends AgentAdapter {
   constructor(platform = 'codex', storageRoot?: string) {
     super();
     this.platform = platform;
-    this.storageRoot = storageRoot ?? getCodexSessionsDir();
+    this.storageRoot = storageRoot ?? sessionStoreDir('codex', undefined);
   }
 
   static isAvailable(): boolean {
-    return dirExists(getCodexSessionsDir());
+    return dirExists(sessionStoreDir('codex', undefined));
   }
 
   static getDefaultStoragePath(): string {
-    return getCodexSessionsDir();
+    return sessionStoreDir('codex', undefined);
   }
 
   /**

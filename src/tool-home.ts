@@ -29,11 +29,11 @@ export type Host = {
 };
 
 /** The machine teamai runs on, the default host of every function that takes one. */
-export function realHost(overrides: Partial<Pick<Host, 'env'>> = {}): Host {
+export function realHost(overrides: Partial<Pick<Host, 'env' | 'home'>> = {}): Host {
   return {
     platform: process.platform,
     path,
-    home: getUserHome(),
+    home: overrides.home ?? getUserHome(),
     env: overrides.env ?? process.env,
     toolHomes: cachedToolHomesRead(),
     cwd: () => process.cwd(),
