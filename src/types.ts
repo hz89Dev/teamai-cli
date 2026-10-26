@@ -2577,7 +2577,7 @@ function isAddressableRootSegment(segment: string): boolean {
  * fixed `.claude` path is `legacyHooksNeedReinject`, a read-only probe for a
  * pre-dispatch migration. Codex qualifies — hooks, skills, rules, agents and
  * MCP resolve through `toolPaths`, co-author through `resolveToolRootDir`, and
- * model switching reads `CODEX_HOME` itself. `toolRoots` stays a generic
+ * model switching reads `CODEX_HOME` when the shell sets it, else the recorded root. `toolRoots` stays a generic
  * record, so a tool joins this table as soon as its writes have been audited.
  *
  * Cursor CLI is in this table as its two roots rather than as `cursor`. It
