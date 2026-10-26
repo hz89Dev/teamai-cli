@@ -9,7 +9,7 @@ import { OMP_RULE_FORMAT } from '../resources/omp-rule.js';
 import { QODER_RULE_FORMAT } from '../resources/qoder-rule.js';
 import { getsRulesFromExtension, getsRulesFromSessionHook, ruleFormatById, ruleFormatForTool, type RuleFormat } from '../resources/rule-format.js';
 import { TRAE_RULE_FORMAT } from '../resources/trae-rule.js';
-import { AGENT_TOOLS, hookFormatOf, isToolId, mcpFormatOf, ruleFormatIdOf, runTimeRulesOf, settingsAtDefault, type HookFormat } from '../tools.js';
+import { AGENT_TOOLS, hookFormatOf, isToolId, mcpFormatOf, ruleFormatIdOf, runTimeRulesOf, hasDefaultHomeLeftovers, type HookFormat } from '../tools.js';
 import { DEFAULT_TOOL_PATHS } from '../types.js';
 
 const TOOL_IDS = Object.keys(DEFAULT_TOOL_PATHS).filter(isToolId);
@@ -79,7 +79,7 @@ describe('the descriptor\'s channels agree with the tables they replaced', () =>
     expect([...AGENT_TOOLS].sort()).toEqual([...BEFORE.agentTools].sort());
   });
 
-  it('marks the tools whose hooks and settings stay at the default home', () => {
-    expect(TOOL_IDS.filter(settingsAtDefault)).toEqual(['pi', 'codebuddy', 'opencode', 'muse']);
+  it('marks the tools earlier releases left hooks and MCP servers for in the default home', () => {
+    expect(TOOL_IDS.filter(hasDefaultHomeLeftovers)).toEqual(['pi', 'codebuddy', 'opencode', 'muse']);
   });
 });

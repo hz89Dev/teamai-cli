@@ -25,14 +25,14 @@ export type HomeMove =
 /**
  * `dir` is relative to `$HOME`. The first of `moves.by` that applies moves the
  * home; `moves.root` is the `$HOME`-relative directory a move replaces when it
- * is not `dir` (Pi's variable moves `.pi/agent`). `moves.settingsAtDefault`:
- * teamai still writes the tool's hooks (OpenCode's plugin, Pi's extension,
- * Muse's and CodeBuddy's settings.json hooks) and `models switch` settings under the default
- * home when the home moves, until B4 of #1221 moves them too.
+ * is not `dir` (Pi's variable moves `.pi/agent`). `moves.defaultHomeLeftovers`:
+ * releases before #1221 wrote the tool's hooks (OpenCode's plugin, Pi's
+ * extension, Muse's and CodeBuddy's settings.json hooks) and MCP servers under
+ * the default home when the home moved, so uninstall and MCP ownership look there too.
  */
 export type Home = {
   readonly dir: string;
-  readonly moves?: { readonly root?: string; readonly by: readonly HomeMove[]; readonly settingsAtDefault?: true };
+  readonly moves?: { readonly root?: string; readonly by: readonly HomeMove[]; readonly defaultHomeLeftovers?: true };
 };
 
 /**
@@ -612,7 +612,7 @@ export const TOOLS = {
     sessions: 'none',
   },
   pi: {
-    home: { dir: '.pi', moves: { root: '.pi/agent', by: [{ kind: 'env', name: 'PI_CODING_AGENT_DIR', evidence: 'verified' }], settingsAtDefault: true } },
+    home: { dir: '.pi', moves: { root: '.pi/agent', by: [{ kind: 'env', name: 'PI_CODING_AGENT_DIR', evidence: 'verified' }], defaultHomeLeftovers: true } },
     skillLoad: { calls: [], promptForm: 'skill-block' },
     skills: {
       user: [{ base: 'home', path: '.pi/agent/skills', evidence: 'verified' }],
@@ -639,7 +639,7 @@ export const TOOLS = {
   // Model switching follows the same recorded home for models.json.
   // The CodeBuddy IDE sends `skill` (src/utils/tool-names.ts). CODEBUDDY_CONFIG_DIR replaces ~/.codebuddy, and ~/.codebuddy.json moves into it.
   codebuddy: {
-    home: { dir: '.codebuddy', moves: { by: [{ kind: 'env', name: 'CODEBUDDY_CONFIG_DIR', evidence: 'verified' }], settingsAtDefault: true } },
+    home: { dir: '.codebuddy', moves: { by: [{ kind: 'env', name: 'CODEBUDDY_CONFIG_DIR', evidence: 'verified' }], defaultHomeLeftovers: true } },
     skillLoad: { calls: [{ name: 'Skill', evidence: 'verified' }, { name: 'skill', evidence: 'assumed' }] },
     skills: { user: [{ base: 'home', path: '.codebuddy/skills', evidence: 'verified' }], project: 'unknown' },
     rules: {
@@ -778,7 +778,7 @@ export const TOOLS = {
   opencode: {
     home: {
       dir: '.config/opencode',
-      moves: { by: [{ kind: 'env', name: 'OPENCODE_CONFIG_DIR', evidence: 'source' }, { kind: 'xdg', child: 'opencode', evidence: 'source' }], settingsAtDefault: true },
+      moves: { by: [{ kind: 'env', name: 'OPENCODE_CONFIG_DIR', evidence: 'source' }, { kind: 'xdg', child: 'opencode', evidence: 'source' }], defaultHomeLeftovers: true },
     },
     skillLoad: { calls: [{ name: 'skill', evidence: 'verified' }] },
     skills: {
@@ -829,7 +829,7 @@ export const TOOLS = {
   },
   // muse-bin 1.4.11: $XDG_CONFIG_HOME/muse, else ~/.config/muse; with XDG_CONFIG_HOME set, ~/.config/muse is never read.
   muse: {
-    home: { dir: '.config/muse', moves: { by: [{ kind: 'xdg', child: 'muse', evidence: 'source' }], settingsAtDefault: true } },
+    home: { dir: '.config/muse', moves: { by: [{ kind: 'xdg', child: 'muse', evidence: 'source' }], defaultHomeLeftovers: true } },
     installedBy: 'home',
     skillLoad: { calls: [{ name: 'read_skill', evidence: 'verified' }] },
     skills: {
@@ -866,10 +866,10 @@ export function isToolId(value: string): value is ToolId {
   return Object.hasOwn(TOOLS, value);
 }
 
-/** Whether teamai still writes `tool`'s hooks and settings under its default home when the home moves (`Home.moves.settingsAtDefault`). */
-export function settingsAtDefault(tool: ToolId): boolean {
+/** Whether releases before #1221 wrote `tool`'s hooks and MCP servers under its default home when the home moved (`Home.moves.defaultHomeLeftovers`). */
+export function hasDefaultHomeLeftovers(tool: ToolId): boolean {
   const { home }: ToolDescriptor = TOOLS[tool];
-  return home.moves?.settingsAtDefault === true;
+  return home.moves?.defaultHomeLeftovers === true;
 }
 
 /** The env variables that move `tool`'s home (`Home.moves.by`): a tool's own, and `XDG_CONFIG_HOME` for an XDG home. */

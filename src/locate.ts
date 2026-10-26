@@ -11,7 +11,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { MCP_SERVER_KEY } from './resources/mcp-format.js';
 import { SESSION_PLATFORM_FACTS, type SessionPlatform, type StoredSessionPlatform } from './session-flow/adapters/platform-facts.js';
 import {
-  channelsOf, installGateOf, isToolId, settingsAtDefault, TOOLS,
+  channelsOf, installGateOf, isToolId, hasDefaultHomeLeftovers, TOOLS,
   type Activation, type BlocksFile, type BlocksHeader, type ChannelProbe, type FirstExistingRead, type HomeRead, type HookAdapter,
   type HookAdapterId, type HookFormat, type HookSettings, type McpProject, type McpUser, type ProjectRead, type ReadGateKind, type RunTime,
   type RunTimeVia,
@@ -975,9 +975,9 @@ async function locateHooks(tool: string, install: Install, host: Host): Promise<
   return adapterHooksOf(tool, channel, user, host);
 }
 
-/** Whether `tool`'s home moved, while every release before #1221 wrote its hooks under the default one (`Home.moves.settingsAtDefault`). */
+/** Whether `tool`'s home moved, while every release before #1221 wrote its hooks under the default one (`Home.moves.defaultHomeLeftovers`). */
 function leftDefaultHome(tool: string, host: Host): boolean {
-  return isToolId(tool) && settingsAtDefault(tool) && movedToolHome(tool, host) !== null;
+  return isToolId(tool) && hasDefaultHomeLeftovers(tool) && movedToolHome(tool, host) !== null;
 }
 
 async function settingsHooksOf(

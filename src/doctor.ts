@@ -43,7 +43,6 @@ import {
   buildRulesDeliveryChecks,
   buildAgentsDeliveryChecks,
   buildAgentPlaceChecks,
-  agentReadNotes,
   buildInstructionDeliveryChecks,
   buildNamespaceNotes,
   buildMcpDeliveryChecks,
@@ -914,7 +913,6 @@ export async function doctor(options: DoctorOptions): Promise<boolean> {
     ...await skillReadNotes(ctx),
     ...await recordedPlaceNotes(ctx, 'rules'),
     ...await recordedPlaceNotes(ctx, 'blocks'),
-    ...await agentReadNotes(ctx),
   ];
 
   if (jsonMode) {
