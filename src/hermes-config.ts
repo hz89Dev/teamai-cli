@@ -229,8 +229,9 @@ export async function upsertHermesHook(
  * are removed. No-op when no matching entry exists.
  *
  * @param command - The command string to remove.
+ * @returns Whether an entry was removed.
  */
-export async function removeHermesHookByCommand(command: string): Promise<void> {
+export async function removeHermesHookByCommand(command: string): Promise<boolean> {
   const doc = await readConfigDoc();
 
   // Get hooks as a plain JS object for iteration.
@@ -238,7 +239,7 @@ export async function removeHermesHookByCommand(command: string): Promise<void> 
   const hooks: Record<string, unknown> | null = YAML.isMap(rawHooks)
     ? (rawHooks.toJSON() as Record<string, unknown>)
     : null;
-  if (!hooks || typeof hooks !== 'object') return;
+  if (!hooks || typeof hooks !== 'object') return false;
 
   let changed = false;
 
@@ -255,7 +256,7 @@ export async function removeHermesHookByCommand(command: string): Promise<void> 
     }
   }
 
-  if (!changed) return;
+  if (!changed) return false;
 
   // If hooks map is now empty, remove the hooks key entirely.
   const remainingRaw = doc.getIn(['hooks']);
@@ -267,6 +268,7 @@ export async function removeHermesHookByCommand(command: string): Promise<void> 
   }
 
   await writeConfigDoc(doc);
+  return true;
 }
 
 /**
@@ -297,18 +299,20 @@ export async function addHermesAllowlist(event: string, command: string): Promis
  *
  * @param event   - Hook event name.
  * @param command - Absolute path of the script to de-approve.
+ * @returns Whether an entry was removed.
  */
-export async function removeHermesAllowlist(event: string, command: string): Promise<void> {
+export async function removeHermesAllowlist(event: string, command: string): Promise<boolean> {
   const filePath = getHermesAllowlistPath();
   const raw = await readJson<AllowlistFile>(filePath);
-  if (!raw || !Array.isArray(raw.approvals)) return;
+  if (!raw || !Array.isArray(raw.approvals)) return false;
 
   const filtered = raw.approvals.filter(
     (a) => !(a.event === event && a.command === command),
   );
-  if (filtered.length === raw.approvals.length) return;
+  if (filtered.length === raw.approvals.length) return false;
 
   await writeJson(filePath, { approvals: filtered });
+  return true;
 }
 
 /**

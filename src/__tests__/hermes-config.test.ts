@@ -211,6 +211,6 @@ describe('removeHermesHookByCommand', () => {
 
   it('is a no-op when the command is not present in config.yaml', async () => {
     // config.yaml does not exist — should not throw
-    await expect(removeHermesHookByCommand('/nonexistent.sh')).resolves.toBeUndefined();
+    await expect(removeHermesHookByCommand('/nonexistent.sh')).resolves.toBe(false);
   });
 });

@@ -187,18 +187,23 @@ export async function injectHermesHooks(): Promise<void> {
  */
 export async function removeHermesHooks(): Promise<void> {
   const scriptPath = getReportScriptPath();
+  let removed = false;
   for (const command of [scriptPath, reportCommand(scriptPath)]) {
-    await removeHermesHookByCommand(command);
-    await removeHermesAllowlist(REPORT_EVENT, command);
+    if (await removeHermesHookByCommand(command)) removed = true;
+    if (await removeHermesAllowlist(REPORT_EVENT, command)) removed = true;
   }
   if (await pathExists(scriptPath)) {
     await remove(scriptPath);
+    removed = true;
   }
   if (await ownsInstructionsPlugin()) {
     await disableHermesPlugin(HERMES_INSTRUCTIONS_PLUGIN);
-    await remove(getInstructionsPluginDir());
+    if (await pathExists(getInstructionsPluginDir())) {
+      await remove(getInstructionsPluginDir());
+      removed = true;
+    }
   }
-  log.success('Removed teamai Hermes hook from ' + scriptPath);
+  if (removed) log.success('Removed teamai Hermes hook from ' + scriptPath);
 }
 
 /**

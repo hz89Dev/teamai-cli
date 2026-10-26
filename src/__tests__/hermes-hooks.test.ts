@@ -44,6 +44,21 @@ describe('injectHermesHooks', () => {
     expect(JSON.parse(fs.readFileSync(allowlistPath, 'utf8')).approvals).toEqual([{ event: 'on_session_start', command: 'echo mine' }]);
   });
 
+  it('reports the removal only when there was a hook to remove', async () => {
+    await injectHermesHooks();
+    const success = vi.spyOn(log, 'success').mockImplementation(() => {});
+    try {
+      await removeHermesHooks();
+      expect(success).toHaveBeenCalledWith(expect.stringContaining('Removed teamai Hermes hook'));
+      success.mockClear();
+
+      await removeHermesHooks();
+      expect(success).not.toHaveBeenCalled();
+    } finally {
+      success.mockRestore();
+    }
+  });
+
   it('reports the injection only when the script, hook entry or allowlist changes', async () => {
     const success = vi.spyOn(log, 'success').mockImplementation(() => {});
     try {
