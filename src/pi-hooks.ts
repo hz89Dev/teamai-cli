@@ -309,7 +309,7 @@ export async function applyPiAgentHook(def: {
 export async function removePiAgentHook(slug: string): Promise<void> {
   assertSafeSlug(slug);
   // And the copy an earlier release left under the default home, which Pi reads once its home stops moving (#1221).
-  for (const dir of [hookAdapterDir('pi-extension'), earlierHookAdapterDir('pi-extension')]) {
+  for (const dir of [hookAdapterDir('pi-extension'), await earlierHookAdapterDir('pi-extension')]) {
     if (dir === null || !await hasPiAgentHook(slug, dir)) continue;
     await remove(piAgentHookFile(slug, dir));
     log.success(`Removed Pi agent hook [${slug}]`);

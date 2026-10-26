@@ -311,9 +311,11 @@ export async function hooksRemove(_options: GlobalOptions): Promise<void> {
 
     // Earlier releases wrote these hooks under the default home, which the tool
     // reads again once its home stops moving (#1221). The records describe the
-    // moved copy, so these go first and leave them for its pass below.
+    // moved copy, so these go first and leave them for its pass below; a copy
+    // that fails keeps them there too, for the retry.
     const install = installOf(teamConfig, localConfig);
     const history = teamHookHistory(localConfig);
+    const keepRecordsFor = new Set<string>();
     for (const tool of Object.keys(scopedToolPaths(teamConfig, localConfig))) {
         const where = await locate(tool, 'hooks', install);
         for (const { place } of where.retired) {
@@ -325,6 +327,7 @@ export async function hooksRemove(_options: GlobalOptions): Promise<void> {
                     await removeAdapterHooks(where.adapter, place.path);
                 }
             } catch (e) {
+                keepRecordsFor.add(tool);
                 log.warn(`Failed to remove hooks from ${place.path}: ${(e as Error).message}`);
             }
         }
@@ -344,6 +347,7 @@ export async function hooksRemove(_options: GlobalOptions): Promise<void> {
         // Self mode: and the team hooks in each tool's settings.local.json (#915).
         ...(isSelfMode(localConfig) ? { selfLocalTeamHooks: { relocate: false } } : {}),
         codexTrust: codexTrustPolicy(localConfig),
+        keepRecordsFor,
     });
 
     const copilotPaths = scopedToolPaths(teamConfig, localConfig)[COPILOT_TOOL_ID];

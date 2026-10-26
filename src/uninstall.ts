@@ -2046,9 +2046,12 @@ async function executeRemoval(
   // An entry no record claims goes when it equals exactly one hook in the team's history (#993).
   // A file whose hooks could not be removed keeps the records that own them, in the data home (#993).
   const hooksLeft: Array<{ what: string; tool: string }> = [...alreadyLeft.hooks ?? []];
+  // A default-home copy that fails keeps the records the moved copy's pass would consume (#1221).
+  const failedRecords = new Set<string>();
   for (const { path: settingsPath, tool, manifestPath, teamOnly, legacyManifestPath, teamHookProjectRoot, mainCheckout, keepRecords } of plan.hookFiles) {
+    const records = `${manifestPath}\0${tool}`;
     try {
-      await reconcileHooks(settingsPath, tool, [], { removeAll: true, manifestPath, keepRecords, teamHookHistory: plan.teamHookHistory, codexTrust,
+      await reconcileHooks(settingsPath, tool, [], { removeAll: true, manifestPath, keepRecords: keepRecords || failedRecords.has(records), teamHookHistory: plan.teamHookHistory, codexTrust,
         ...(teamOnly ? { teamOnly, legacyManifestPath,
           // Uninstalling a partition removes this tool for the whole installation.
           mainCheckout: plan.sharedPartition && !mainCheckout?.worktreeScoped ? undefined : mainCheckout,
@@ -2056,6 +2059,7 @@ async function executeRemoval(
         ...(teamHookProjectRoot ? { teamHookProjectRoot } : {}),
       });
     } catch (e) {
+      failedRecords.add(records);
       log.warn(`Failed to remove hooks from ${settingsPath}: ${(e as Error).message}`);
       hooksLeft.push({ what: settingsPath, tool });
     }

@@ -34,8 +34,9 @@ describe('hooks follow a moved CodeBuddy and OpenCode home (#1221, real CLI)', (
 
   afterEach(() => fs.rmSync(sandbox, { recursive: true, force: true }));
 
+  const spawn = (...args: string[]) => spawnSync(process.execPath, [cli, ...args], { cwd: home, env, encoding: 'utf8', timeout: 30_000 });
   const run = (...args: string[]) => {
-    const result = spawnSync(process.execPath, [cli, ...args], { cwd: home, env, encoding: 'utf8', timeout: 30_000 });
+    const result = spawn(...args);
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
     return result.stdout;
   };
@@ -99,9 +100,21 @@ describe('hooks follow a moved CodeBuddy and OpenCode home (#1221, real CLI)', (
     expect(fs.existsSync(defaultPlugin)).toBe(false);
   });
 
+  it('hooks inject keeps the OpenCode plugin when the default config dir is a link to OPENCODE_CONFIG_DIR', () => {
+    const moved = path.join(sandbox, 'oc');
+    env = { ...env, XDG_CONFIG_HOME: '', OPENCODE_CONFIG_DIR: moved };
+    fs.mkdirSync(moved);
+    fs.mkdirSync(path.join(home, '.config'), { recursive: true });
+    fs.symlinkSync(moved, path.join(home, '.config', 'opencode'), 'dir');
+
+    run('hooks', 'inject');
+
+    expect(fs.existsSync(path.join(moved, 'plugin', 'teamai-hooks.ts'))).toBe(true);
+  });
+
   // A Muse team hook carries no marker: only its record names it, and an HTTP-backed team has no
   // hook history to recognize it by. Clearing one copy must not take the record the other needs.
-  it.each(['uninstall --force', 'hooks remove'])('%s clears a Muse team hook from both homes with one record', (command) => {
+  const museTeamHook = () => {
     const teamRepo = path.join(home, '.teamai', 'team-repo');
     fs.writeFileSync(path.join(teamRepo, 'teamai.yaml'), 'team: moved-hooks-e2e\nrepo: https://example.com/team.git\nprovider: git\nsharing:\n  hooks:\n    autoApply: true\n    requireTeamScripts: false\n');
     fs.mkdirSync(path.join(teamRepo, 'hooks'));
@@ -113,16 +126,34 @@ describe('hooks follow a moved CodeBuddy and OpenCode home (#1221, real CLI)', (
     fs.mkdirSync(path.join(sandbox, 'xdg', 'muse'));
     const movedSettings = path.join(sandbox, 'xdg', 'muse', 'settings.json');
     const defaultSettings = path.join(home, '.config', 'muse', 'settings.json');
-    const hasTeamHook = (file: string) => fs.existsSync(file) && fs.readFileSync(file, 'utf8').includes('company-check');
     run('hooks', 'inject');
     expect(hasTeamHook(movedSettings)).toBe(true);
     fs.mkdirSync(path.dirname(defaultSettings), { recursive: true });
     fs.copyFileSync(movedSettings, defaultSettings);
+    return { movedSettings, defaultSettings };
+  };
+  const hasTeamHook = (file: string) => fs.existsSync(file) && fs.readFileSync(file, 'utf8').includes('company-check');
+
+  it.each(['uninstall --force', 'hooks remove'])('%s clears a Muse team hook from both homes with one record', (command) => {
+    const { movedSettings, defaultSettings } = museTeamHook();
 
     run(...command.split(' '));
 
     expect(hasTeamHook(movedSettings)).toBe(false);
     expect(hasTeamHook(defaultSettings)).toBe(false);
     expect(hasTeamHook(path.join(home, '.teamai', 'managed-hooks.json'))).toBe(false);
+  });
+
+  it.each(['uninstall --force', 'hooks remove'])('%s keeps the record while the default-home copy fails, so a retry clears it', (command) => {
+    const { movedSettings, defaultSettings } = museTeamHook();
+    const intact = fs.readFileSync(defaultSettings, 'utf8');
+    fs.writeFileSync(defaultSettings, intact.trimEnd().slice(0, -1));
+
+    spawn(...command.split(' '));
+    fs.writeFileSync(defaultSettings, intact);
+    run(...command.split(' '));
+
+    expect(hasTeamHook(movedSettings)).toBe(false);
+    expect(hasTeamHook(defaultSettings)).toBe(false);
   });
 });

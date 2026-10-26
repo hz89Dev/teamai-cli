@@ -563,7 +563,7 @@ export async function applyOpencodeAgentHook(def: {
   await writeFile(file, buildAgentHookPluginSource(def.slug, ocEvent, def.command, def.matcher));
   log.success(`Installed OpenCode agent hook [${def.slug}] in ${file}`);
   // OpenCode 1.x also loads the default home's plugins, where an earlier release wrote this one (#1221).
-  const earlier = def.scope === 'user' ? earlierHookAdapterDir('opencode-plugin') : null;
+  const earlier = def.scope === 'user' ? await earlierHookAdapterDir('opencode-plugin') : null;
   if (earlier) await remove(path.join(earlier, `teamai-agent-${def.slug}.ts`));
 }
 
@@ -575,7 +575,7 @@ export async function removeOpencodeAgentHook(opts: {
 }): Promise<void> {
   assertSafeSlug(opts.slug);
   // And the copy an earlier release left under the default home (#1221).
-  const dirs = [resolveOpencodePluginDir(opts.baseDir, opts.scope), opts.scope === 'user' ? earlierHookAdapterDir('opencode-plugin') : null];
+  const dirs = [resolveOpencodePluginDir(opts.baseDir, opts.scope), opts.scope === 'user' ? await earlierHookAdapterDir('opencode-plugin') : null];
   for (const dir of dirs) {
     const file = dir === null ? null : path.join(dir, `teamai-agent-${opts.slug}.ts`);
     if (file === null || !await pathExists(file)) continue;
