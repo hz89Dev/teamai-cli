@@ -2105,12 +2105,8 @@ async function executeRemoval(
   // (a2b) Remove OpenCode teamai plugin files (main hook + any agent-hook plugins).
   for (const pluginDir of plan.opencodePluginDirs) {
     try {
-      const { OPENCODE_HOOK_FILE } = await import('./opencode-hooks.js');
-      const file = path.join(pluginDir, OPENCODE_HOOK_FILE);
-      if (await pathExists(file)) {
-        await remove(file);
-        log.success(`Removed teamai OpenCode hook from ${file}`);
-      }
+      const { removeOpencodePlugin } = await import('./opencode-hooks.js');
+      await removeOpencodePlugin(pluginDir);
       // Sweep leftover teamai-agent-*.ts plugins not tracked in the agent-hook
       // manifest. listFilesRecursive yields paths relative to pluginDir.
       if (await pathExists(pluginDir)) {

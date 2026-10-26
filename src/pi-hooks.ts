@@ -204,10 +204,10 @@ export async function injectPiHooks(): Promise<void> {
   }
 }
 
-/** Remove the generated global Pi extension if present. */
-export async function removePiHooks(): Promise<void> {
-  const file = path.join(hookAdapterDir('pi-extension'), PI_HOOK_FILE);
-  if (!await hasPiHooks()) return;
+/** Remove the generated extension from `extensionsDir`, by default the one Pi loads, if it has TeamAI's marker. */
+export async function removePiHooks(extensionsDir = hookAdapterDir('pi-extension')): Promise<void> {
+  const file = path.join(extensionsDir, PI_HOOK_FILE);
+  if (!await hasPiHooks(extensionsDir)) return;
   await remove(file);
   log.success(`Removed teamai Pi hook from ${file}`);
 }

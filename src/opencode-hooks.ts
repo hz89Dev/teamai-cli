@@ -434,8 +434,12 @@ export async function opencodeDeliversThroughPlugin(teamConfig: TeamaiConfig, lo
 
 /** Remove the teamai OpenCode plugin for a scope if present. */
 export async function removeOpencodeHooks(baseDir: string, scope: 'project' | 'user'): Promise<void> {
-  const dir = resolveOpencodePluginDir(baseDir, scope);
-  const file = path.join(dir, OPENCODE_HOOK_FILE);
+  await removeOpencodePlugin(resolveOpencodePluginDir(baseDir, scope));
+}
+
+/** Remove teamai's hook plugin from the OpenCode plugin directory `pluginDir`. */
+export async function removeOpencodePlugin(pluginDir: string): Promise<void> {
+  const file = path.join(pluginDir, OPENCODE_HOOK_FILE);
   if (await pathExists(file)) {
     await remove(file);
     log.success(`Removed teamai OpenCode hook from ${file}`);

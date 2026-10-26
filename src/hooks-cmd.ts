@@ -1,13 +1,14 @@
 import { hookToolPathsForConfig } from './types.js';
-import { hookAdapterDir, hookSettingsFile } from './locate.js';
+import { hookAdapterDir, hookSettingsFile, installOf, locate } from './locate.js';
 import path from 'node:path';
 import { autoDetectInit } from './config.js';
-import { codexTrustPolicy, migrateLegacyManagedHooks, reconcileHooks, reconcileHooksToAllTools, reconcileTeamHooksForConfig, removeCopilotGlobalBuiltins, sweepLegacyProjectHooks, getHookStatus, reportCodexTrust, resolveMainCheckoutHooks, trustCodexForScope, type HookStatus } from './hooks.js';
+import { codexTrustPolicy, migrateLegacyManagedHooks, reconcileHooks, reconcileHooksToAllTools, reconcileTeamHooksForConfig, removeCopilotGlobalBuiltins, sweepLegacyProjectHooks, getHookStatus, reportCodexTrust, resolveMainCheckoutHooks, teamHookHistory, trustCodexForScope, type HookStatus } from './hooks.js';
 import { applyBuiltinOverride, installedBuiltinHookDefs } from './builtin-hooks.js';
 import { resolveTeamHookEntries } from './resources/hooks.js';
 import { describeEntryFailure, describeOrigin, reportUndeliveredEntryNotices } from './namespaced-entries.js';
 import { log } from './utils/logger.js';
 import type { GlobalOptions, HookDef } from './types.js';
+import type { HookAdapterId } from './tools.js';
 import {
     COPILOT_TOOL_ID,
     getManagedHooksPath,
@@ -91,6 +92,28 @@ async function adapterHookArtifacts(tool: string): Promise<string[] | null> {
         return [path.join(dir, 'HOOK.md'), path.join(dir, 'handler.ts')];
     }
     return null;
+}
+
+/** Remove teamai's hook adapter files from `dir`, a directory `locate` retired. */
+async function removeAdapterHooks(adapter: HookAdapterId, dir: string): Promise<void> {
+    switch (adapter) {
+        case 'opencode-plugin': {
+            const { removeOpencodePlugin } = await import('./opencode-hooks.js');
+            return removeOpencodePlugin(dir);
+        }
+        case 'pi-extension':
+            return removePiHooks(dir);
+        // These adapters' homes have no default-home leftovers (`Home.moves.defaultHomeLeftovers`).
+        case 'omp-extension':
+        case 'hermes-plugin':
+        case 'openclaw-hook':
+        case 'dsh-hooks':
+            return;
+        default: {
+            const unhandled: never = adapter;
+            return unhandled;
+        }
+    }
 }
 
 /**
@@ -332,6 +355,20 @@ export async function hooksRemove(_options: GlobalOptions): Promise<void> {
     // follows scope ownership separately and preserves this file.
     if (teamConfig.toolPaths.pi) {
         await removePiHooks();
+    }
+
+    // Earlier releases wrote these hooks under the default home, which the tool
+    // reads again once its home stops moving (#1221). Their records went with the
+    // moved copy above, so the team's hook history identifies the team entries.
+    const install = installOf(teamConfig, localConfig);
+    const history = teamHookHistory(localConfig);
+    for (const tool of Object.keys(scopedToolPaths(teamConfig, localConfig))) {
+        const where = await locate(tool, 'hooks', install);
+        for (const { place } of where.retired) {
+            if (!await pathExists(place.path)) continue;
+            if (place.kind === 'entry') await reconcileHooks(place.path, tool, [], { manifestPath, removeAll: true, teamHookHistory: history });
+            else if (where.channel === 'files' && 'adapter' in where) await removeAdapterHooks(where.adapter, place.path);
+        }
     }
 
     log.success('Hooks removed from all AI tool settings');

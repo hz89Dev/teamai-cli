@@ -22,6 +22,7 @@ vi.mock('../hooks.js', async () => {
         sweepLegacyProjectHooks: vi.fn(),
         trustCodexForScope: vi.fn(),
         resolveMainCheckoutHooks: vi.fn(),
+        teamHookHistory: vi.fn(),
         // Keep the real report so assertions verify the actual wording.
         reportCodexTrust: actual.reportCodexTrust,
         codexTrustPolicy: actual.codexTrustPolicy,
@@ -874,6 +875,51 @@ describe('hooksRemove', () => {
             await hooksRemove({});
             expect(await fse.pathExists(globalPiHook)).toBe(false);
         } finally {
+            restoreHome();
+            await fse.remove(tmp);
+        }
+    });
+
+    it('also clears the CodeBuddy hooks an earlier release wrote in the default home (#1221)', async () => {
+        const tmp = await fse.mkdtemp(path.join(os.tmpdir(), 'teamai-hooks-remove-cb-'));
+        const restoreHome = mockHome(tmp);
+        vi.stubEnv('CODEBUDDY_CONFIG_DIR', path.join(tmp, 'cb'));
+        const defaultSettings = path.join(tmp, '.codebuddy', 'settings.json');
+        await fse.outputJson(defaultSettings, { hooks: {} });
+        mockedAutoDetectInit.mockResolvedValue({
+            localConfig: mockLocalConfig,
+            teamConfig: { toolPaths: { codebuddy: { skills: '.codebuddy/skills', settings: '.codebuddy/settings.json' } } },
+        });
+
+        try {
+            await hooksRemove({});
+        } finally {
+            vi.unstubAllEnvs();
+            restoreHome();
+            await fse.remove(tmp);
+        }
+
+        expect(mockedReconcileStandalone).toHaveBeenCalledWith(defaultSettings, 'codebuddy', [], expect.objectContaining({ removeAll: true }));
+    });
+
+    it('also deletes the Pi extension an earlier release wrote in the default home (#1221)', async () => {
+        const tmp = await fse.mkdtemp(path.join(os.tmpdir(), 'teamai-hooks-remove-pi-moved-'));
+        const restoreHome = mockHome(tmp);
+        vi.stubEnv('PI_CODING_AGENT_DIR', path.join(tmp, 'pi-agent'));
+        const movedPiHook = path.join(tmp, 'pi-agent', 'extensions', 'teamai-hooks.ts');
+        const defaultPiHook = path.join(tmp, '.pi', 'agent', 'extensions', 'teamai-hooks.ts');
+        for (const file of [movedPiHook, defaultPiHook]) await fse.outputFile(file, '// [teamai] hooks extension');
+        mockedAutoDetectInit.mockResolvedValue({
+            localConfig: mockLocalConfig,
+            teamConfig: { toolPaths: { pi: { skills: '.pi/skills' } } },
+        });
+
+        try {
+            await hooksRemove({});
+            expect(await fse.pathExists(movedPiHook)).toBe(false);
+            expect(await fse.pathExists(defaultPiHook)).toBe(false);
+        } finally {
+            vi.unstubAllEnvs();
             restoreHome();
             await fse.remove(tmp);
         }
