@@ -142,6 +142,7 @@ function hostFor(row: MatrixRow, cell: Cell): Host {
     platform: cell.platform,
     path: flavorOf(cell.platform),
     home: HOMES[cell.platform],
+    profileHome: HOMES[cell.platform],
     env: cell.env,
     toolHomes: { kind: 'ok', homes: expand(row.toolHomes, cell) },
     cwd: () => cwdOf(cell.platform, cell.cwd),

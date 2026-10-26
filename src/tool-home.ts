@@ -1,10 +1,11 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { z } from 'zod';
 import { TOOLS, type HomeMove } from './tools.js';
 import type { ToolId } from './types.js';
 import { pathExists, readFileSafe, readJsonObject, writeJsonAtomic, type JsonObjectRead } from './utils/fs.js';
-import { getUserHome } from './utils/home.js';
+import { getUserHome, normalizeHomePath } from './utils/home.js';
 
 export type Host = {
   readonly platform: NodeJS.Platform;
@@ -12,6 +13,8 @@ export type Host = {
   readonly path: path.PlatformPath;
   /** The member's home, normalized (`getUserHome()` on the real host). */
   readonly home: string;
+  /** The home the OS reports, which the tools write their session stores under (`os.homedir()`): on Windows %USERPROFILE%, whatever HOME says. */
+  readonly profileHome: string;
   readonly env: Readonly<Record<string, string | undefined>>;
   /** The tool-homes record on this machine (`~/.teamai/tool-homes.json`) as read: its homes win over `env`. */
   readonly toolHomes: ToolHomesRead;
@@ -34,6 +37,7 @@ export function realHost(overrides: Partial<Pick<Host, 'env' | 'home'>> = {}): H
     platform: process.platform,
     path,
     home: overrides.home ?? getUserHome(),
+    profileHome: normalizeHomePath(os.homedir()),
     env: overrides.env ?? process.env,
     toolHomes: cachedToolHomesRead(),
     cwd: () => process.cwd(),

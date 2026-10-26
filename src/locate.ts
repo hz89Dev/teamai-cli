@@ -6,7 +6,6 @@
  * through `host`, and paths are joined in the host's flavor, so a Linux test
  * can resolve a Windows member's paths.
  */
-import os from 'node:os';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { MCP_SERVER_KEY } from './resources/mcp-format.js';
@@ -907,25 +906,24 @@ async function mcpFilesOf(
 /**
  * Where `platform`'s sessions sit on `host`. A `tool-home` store follows the member's recorded
  * root first, then its tool's home, as that tool's other files do. A recorded root is checked
- * against `member` (HOME by default), the home `teamai init` accepted it under. The real host's
- * home is the one the tools write their stores under, `os.homedir()`: on Windows that is
- * %USERPROFILE%, whatever HOME says.
+ * against `host.home`, the home `teamai init` accepted it under. A default store sits under
+ * `host.profileHome`, where the tools write it.
  */
 export function sessionStoreDir(
   platform: StoredSessionPlatform,
   toolRoots: Readonly<Record<string, string>> | undefined,
-  host: Host = realHost({ home: os.homedir() }),
-  member?: HomePaths,
+  host: Host = realHost(),
 ): string {
   const { store } = SESSION_PLATFORM_FACTS[platform];
   const p = host.path;
   switch (store.in) {
     case 'tool-home': {
-      const dir = recordedToolRootDir('root' in store ? store.root : store.home, toolRoots, member) ?? toolHome(store.home, host);
+      const dir = recordedToolRootDir('root' in store ? store.root : store.home, toolRoots, host)
+        ?? toolHome(store.home, { ...host, home: host.profileHome });
       return p.join(dir, store.dir);
     }
     case 'xdg-data':
-      return p.join(host.env.XDG_DATA_HOME || p.join(host.home, '.local', 'share'), store.child);
+      return p.join(host.env.XDG_DATA_HOME || p.join(host.profileHome, '.local', 'share'), store.child);
     default: {
       const unhandled: never = store;
       return unhandled;
@@ -939,6 +937,6 @@ async function locateSessions(tool: string, install: Install, host: Host): Promi
   if (typeof sessions === 'string') return { channel: sessions, retired: [], gates: [] };
   const [platform] = sessions;
   const { toolRoots } = install.scope === 'user' ? install : await userViewOf(install, host);
-  const own: DirPlace = { kind: 'dir', path: sessionStoreDir(platform, toolRoots, host, host) };
+  const own: DirPlace = { kind: 'dir', path: sessionStoreDir(platform, toolRoots, host) };
   return { channel: 'files', own, platform, reads: [{ path: own.path, when: 'always' }], readGates: [], retired: [], gates: [] };
 }
