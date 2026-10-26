@@ -336,6 +336,7 @@ export async function hooksRemove(_options: GlobalOptions): Promise<void> {
     // Removal must target the same paths injection used. A non-self project
     // scope injects into HOME, so resolving the project-scope paths here would
     // miss (and leave behind) every tool whose user-scope prefix differs.
+    const unwritten: string[] = [];
     const reconciledMainTools = await reconcileHooksToAllTools(hookToolPathsForConfig(teamConfig, localConfig), baseDir, [], manifestPath, {
         removeAll: true,
         scope: localConfig.scope,
@@ -348,6 +349,7 @@ export async function hooksRemove(_options: GlobalOptions): Promise<void> {
         ...(isSelfMode(localConfig) ? { selfLocalTeamHooks: { relocate: false } } : {}),
         codexTrust: codexTrustPolicy(localConfig),
         keepRecordsFor,
+        unwritten,
     });
 
     const copilotPaths = scopedToolPaths(teamConfig, localConfig)[COPILOT_TOOL_ID];
@@ -375,7 +377,7 @@ export async function hooksRemove(_options: GlobalOptions): Promise<void> {
     // differs from the primary target — never HOME (shared with user scope, and
     // the primary target itself when projectRoot IS the home dir), and never
     // re-running on the primary target in self mode.
-    await sweepLegacyProjectHooks(teamConfig.toolPaths, localConfig, reconciledMainTools);
+    await sweepLegacyProjectHooks(teamConfig.toolPaths, localConfig, reconciledMainTools, unwritten);
 
     // Pi has one shared user extension. `hooks remove` is an explicit global
     // hook-disable action even when invoked from a project; project uninstall
@@ -384,6 +386,11 @@ export async function hooksRemove(_options: GlobalOptions): Promise<void> {
         await removePiHooks();
     }
 
-
+    const left = new Set([...keepRecordsFor, ...unwritten]);
+    if (left.size > 0) {
+        log.warn(`Hooks remove incomplete: teamai hooks are left for ${[...left].join(', ')}. Fix what the warnings above name, then run \`teamai hooks remove\` again.`);
+        process.exitCode = 1;
+        return;
+    }
     log.success('Hooks removed from all AI tool settings');
 }

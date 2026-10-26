@@ -159,12 +159,14 @@ describe('hooks follow a moved CodeBuddy and OpenCode home (#1221, real CLI)', (
     expect(hasTeamHook(path.join(home, '.teamai', 'managed-hooks.json'))).toBe(false);
   });
 
-  it.each(['uninstall --force', 'hooks remove'])('%s keeps the record while the default-home copy fails, so a retry clears it', (command) => {
+  it.each(['uninstall --force', 'hooks remove'])('%s exits 1 and keeps the record while the default-home copy fails, so a retry clears it', (command) => {
     const { movedSettings, defaultSettings } = museTeamHook();
     const intact = fs.readFileSync(defaultSettings, 'utf8');
     fs.writeFileSync(defaultSettings, intact.trimEnd().slice(0, -1));
 
-    spawn(...command.split(' '));
+    const failed = spawn(...command.split(' '));
+    expect(failed.status, `${failed.stdout}\n${failed.stderr}`).toBe(1);
+    expect(failed.stdout + failed.stderr).not.toMatch(/Hooks removed from all AI tool settings|teamai uninstalled/);
     fs.writeFileSync(defaultSettings, intact);
     run(...command.split(' '));
 

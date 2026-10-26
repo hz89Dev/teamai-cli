@@ -787,9 +787,24 @@ describe('hooksRemove', () => {
             expect.any(String),
             [],
             expect.stringContaining('managed-hooks.json'),
-            { removeAll: true, scope: 'user', installedBaseDir: undefined, teamHookProjectRoot: undefined, mainCheckout: null, keepRecordsFor: new Set(), codexTrust: { kind: 'enabled', codexHome: expect.any(String) } },
+            { removeAll: true, scope: 'user', installedBaseDir: undefined, teamHookProjectRoot: undefined, mainCheckout: null, keepRecordsFor: new Set(), unwritten: [], codexTrust: { kind: 'enabled', codexHome: expect.any(String) } },
         );
         expect(mockedLog.success).toHaveBeenCalledWith(expect.stringContaining('Hooks removed'));
+    });
+
+    it('exits 1 without the success line when the legacy project sweep leaves hooks behind', async () => {
+        mockedSweep.mockImplementationOnce(async (_toolPaths: unknown, _localConfig: unknown, _reconciled: unknown, unwritten: string[]) => {
+            unwritten.push('cursor');
+        });
+        try {
+            await hooksRemove({});
+
+            expect(process.exitCode).toBe(1);
+            expect(mockedLog.warn).toHaveBeenCalledWith(expect.stringContaining('Hooks remove incomplete'));
+            expect(mockedLog.success).not.toHaveBeenCalledWith(expect.stringContaining('Hooks removed'));
+        } finally {
+            process.exitCode = undefined;
+        }
     });
 
     it('removes from HOME and cleans up legacy projectRoot entries (#264)', async () => {
@@ -813,7 +828,7 @@ describe('hooksRemove', () => {
             '/home/testuser',
             [],
             expect.any(String),
-            { removeAll: true, scope: 'project', installedBaseDir: '/path/to/project', teamHookProjectRoot: '/path/to/project', mainCheckout: null, keepRecordsFor: new Set(), codexTrust: { kind: 'enabled', codexHome: '/home/testuser/.codex' } },
+            { removeAll: true, scope: 'project', installedBaseDir: '/path/to/project', teamHookProjectRoot: '/path/to/project', mainCheckout: null, keepRecordsFor: new Set(), unwritten: [], codexTrust: { kind: 'enabled', codexHome: '/home/testuser/.codex' } },
         );
         const userManifest = mockedReconcile.mock.calls[0][3] as string;
         expect(userManifest).toContain('/home/testuser');
@@ -821,6 +836,7 @@ describe('hooksRemove', () => {
             mockTeamConfig.toolPaths,
             expect.objectContaining({ scope: 'project', projectRoot: '/path/to/project' }),
             reconciledMainTools,
+            [],
         );
     });
 
@@ -852,7 +868,7 @@ describe('hooksRemove', () => {
             [],
             expect.any(String),
             {
-                removeAll: true, scope: 'project', installedBaseDir: '/path/to/project', teamHookProjectRoot: undefined, mainCheckout: null, keepRecordsFor: new Set(),
+                removeAll: true, scope: 'project', installedBaseDir: '/path/to/project', teamHookProjectRoot: undefined, mainCheckout: null, keepRecordsFor: new Set(), unwritten: [],
                 // The team hooks in settings.local.json go too (#915).
                 selfLocalTeamHooks: { relocate: false },
                 codexTrust: { kind: 'enabled', codexHome: '/home/testuser/.codex' },
