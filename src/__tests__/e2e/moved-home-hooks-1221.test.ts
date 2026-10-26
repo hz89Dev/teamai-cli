@@ -83,4 +83,31 @@ describe('hooks follow a moved CodeBuddy and OpenCode home (#1221, real CLI)', (
     expect(hasTeamaiHooks(defaultSettings)).toBe(false);
     expect(fs.existsSync(defaultPlugin)).toBe(false);
   });
+
+  // A Muse team hook carries no marker: only its record names it, and an HTTP-backed team has no
+  // hook history to recognize it by. Clearing one copy must not take the record the other needs.
+  it.each(['uninstall --force', 'hooks remove'])('%s clears a Muse team hook from both homes with one record', (command) => {
+    const teamRepo = path.join(home, '.teamai', 'team-repo');
+    fs.writeFileSync(path.join(teamRepo, 'teamai.yaml'), 'team: moved-hooks-e2e\nrepo: https://example.com/team.git\nprovider: git\nsharing:\n  hooks:\n    autoApply: true\n    requireTeamScripts: false\n');
+    fs.mkdirSync(path.join(teamRepo, 'hooks'));
+    fs.writeFileSync(path.join(teamRepo, 'hooks', 'hooks.yaml'), 'hooks:\n  - id: company-check\n    description: Company check\n    event: Stop\n    command: echo company-check\n');
+    fs.writeFileSync(path.join(home, '.teamai', 'config.yaml'), [
+      'repo:', '  kind: http', '  url: https://example.com/team', `  localPath: ${teamRepo}`, '  remote: https://example.com/team',
+      'username: e2e-user', 'updatePolicy: skip', 'scope: user', 'enabledAgents: [muse]',
+    ].join('\n'));
+    fs.mkdirSync(path.join(sandbox, 'xdg', 'muse'));
+    const movedSettings = path.join(sandbox, 'xdg', 'muse', 'settings.json');
+    const defaultSettings = path.join(home, '.config', 'muse', 'settings.json');
+    const hasTeamHook = (file: string) => fs.existsSync(file) && fs.readFileSync(file, 'utf8').includes('company-check');
+    run('hooks', 'inject');
+    expect(hasTeamHook(movedSettings)).toBe(true);
+    fs.mkdirSync(path.dirname(defaultSettings), { recursive: true });
+    fs.copyFileSync(movedSettings, defaultSettings);
+
+    run(...command.split(' '));
+
+    expect(hasTeamHook(movedSettings)).toBe(false);
+    expect(hasTeamHook(defaultSettings)).toBe(false);
+    expect(hasTeamHook(path.join(home, '.teamai', 'managed-hooks.json'))).toBe(false);
+  });
 });

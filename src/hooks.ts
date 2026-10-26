@@ -357,6 +357,12 @@ export interface ReconcileHooksOptions {
   dropTeamEntries?: boolean;
   /** The active config's Codex trust; without it, a write that moves a Codex group writes no trust and starts no Codex. */
   codexTrust?: CodexTrustPolicy;
+  /**
+   * Judge the file by the manifest's records and leave them as they are. For a
+   * copy of the hooks an earlier release wrote elsewhere, cleaned before the
+   * file the records describe, whose own pass then consumes them (#1221).
+   */
+  keepRecords?: boolean;
 }
 
 /** Every team hook any revision of the team repo's hook files declares, read once. */
@@ -2648,7 +2654,7 @@ export async function reconcileHooks(
   }
 
   // Update the manifest's team-hook index for this tool (when manifest is active).
-  if (opts.manifestPath && manifest) {
+  if (opts.manifestPath && manifest && !opts.keepRecords) {
     const followCodexMove = (record: ManagedHookRecord): ManagedHookRecord => {
       const index = record.codexEntryIndex === undefined ? undefined : codex?.newIndexByOld.get(record.event)?.get(record.codexEntryIndex);
       return index === undefined ? record : { ...record, codexEntryIndex: index };

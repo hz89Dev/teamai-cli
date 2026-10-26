@@ -305,6 +305,31 @@ export async function hooksRemove(_options: GlobalOptions): Promise<void> {
     await migrateLegacyManagedHooks(localConfig);
 
     const { baseDir, manifestPath, scope: hookScope } = resolveHookScope(localConfig);
+    const teamHookProjectRoot = localConfig.scope === 'project' && !isSelfMode(localConfig)
+        ? localConfig.projectRoot
+        : undefined;
+
+    // Earlier releases wrote these hooks under the default home, which the tool
+    // reads again once its home stops moving (#1221). The records describe the
+    // moved copy, so these go first and leave them for its pass below.
+    const install = installOf(teamConfig, localConfig);
+    const history = teamHookHistory(localConfig);
+    for (const tool of Object.keys(scopedToolPaths(teamConfig, localConfig))) {
+        const where = await locate(tool, 'hooks', install);
+        for (const { place } of where.retired) {
+            if (!await pathExists(place.path)) continue;
+            try {
+                if (place.kind === 'entry') {
+                    await reconcileHooks(place.path, tool, [], { manifestPath, removeAll: true, keepRecords: true, teamHookHistory: history, teamHookProjectRoot });
+                } else if (where.channel === 'files' && 'adapter' in where) {
+                    await removeAdapterHooks(where.adapter, place.path);
+                }
+            } catch (e) {
+                log.warn(`Failed to remove hooks from ${place.path}: ${(e as Error).message}`);
+            }
+        }
+    }
+
     // Removal must target the same paths injection used. A non-self project
     // scope injects into HOME, so resolving the project-scope paths here would
     // miss (and leave behind) every tool whose user-scope prefix differs.
@@ -313,9 +338,7 @@ export async function hooksRemove(_options: GlobalOptions): Promise<void> {
         scope: localConfig.scope,
         toolRoots: localConfig.toolRoots,
         installedBaseDir: localConfig.scope === 'project' ? localConfig.projectRoot : undefined,
-        teamHookProjectRoot: localConfig.scope === 'project' && !isSelfMode(localConfig)
-            ? localConfig.projectRoot
-            : undefined,
+        teamHookProjectRoot,
         // The project's Claude and Codex team hooks live in the main checkout.
         mainCheckout: await resolveMainCheckoutHooks(localConfig, teamConfig.toolPaths),
         // Self mode: and the team hooks in each tool's settings.local.json (#915).
@@ -357,19 +380,6 @@ export async function hooksRemove(_options: GlobalOptions): Promise<void> {
         await removePiHooks();
     }
 
-    // Earlier releases wrote these hooks under the default home, which the tool
-    // reads again once its home stops moving (#1221). Their records went with the
-    // moved copy above, so the team's hook history identifies the team entries.
-    const install = installOf(teamConfig, localConfig);
-    const history = teamHookHistory(localConfig);
-    for (const tool of Object.keys(scopedToolPaths(teamConfig, localConfig))) {
-        const where = await locate(tool, 'hooks', install);
-        for (const { place } of where.retired) {
-            if (!await pathExists(place.path)) continue;
-            if (place.kind === 'entry') await reconcileHooks(place.path, tool, [], { manifestPath, removeAll: true, teamHookHistory: history });
-            else if (where.channel === 'files' && 'adapter' in where) await removeAdapterHooks(where.adapter, place.path);
-        }
-    }
 
     log.success('Hooks removed from all AI tool settings');
 }

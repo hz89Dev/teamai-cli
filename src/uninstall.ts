@@ -110,7 +110,7 @@ interface UninstallOptions extends GlobalOptions {
 interface RemovalPlan {
   /** Tool settings files that contain teamai hooks (each with the manifest that
    *  recorded its team hooks — HOME/user or a legacy <projectRoot>/project one). */
-  hookFiles: Array<{ path: string; tool: string; manifestPath: string; teamOnly?: boolean; legacyManifestPath?: string; teamHookProjectRoot?: string; mainCheckout?: MainCheckoutHooks }>;
+  hookFiles: Array<{ path: string; tool: string; manifestPath: string; teamOnly?: boolean; legacyManifestPath?: string; teamHookProjectRoot?: string; mainCheckout?: MainCheckoutHooks; keepRecords?: boolean }>;
   /** OpenClaw-style hook dirs (<base>/.<tool>/hooks) holding teamai HOOK.md+handler.ts. */
   openclawHookDirs: Array<{ hooksDir: string; tool: string }>;
   /** OpenCode teamai plugin files (.opencode/plugin/teamai-*.ts) to delete. */
@@ -239,7 +239,7 @@ interface OpencodeInstruction {
 }
 
 interface ToolResources {
-  hookFiles: Array<{ path: string; tool: string; manifestPath: string; teamOnly?: boolean; legacyManifestPath?: string; teamHookProjectRoot?: string; mainCheckout?: MainCheckoutHooks }>;
+  hookFiles: Array<{ path: string; tool: string; manifestPath: string; teamOnly?: boolean; legacyManifestPath?: string; teamHookProjectRoot?: string; mainCheckout?: MainCheckoutHooks; keepRecords?: boolean }>;
   openclawHookDirs: Array<{ hooksDir: string; tool: string }>;
   opencodePluginDirs: string[];
   ompHookFile: string | null;
@@ -581,11 +581,14 @@ async function discoverToolResources(
     for (const { baseDir: hookBaseDir, manifestPath, fileFor, teamOnly, legacyManifestPath, teamHookProjectRoot, teamHookHistory: history, mainCheckout } of hookTargets) {
       const atHome = path.resolve(hookBaseDir) === path.resolve(getUserHome());
       const settingsRel = atHome ? (hookSettingsPath ?? toolPath.settings) : toolPath.settings;
-      // At HOME the file follows a moved tool home; earlier releases wrote the default-home one.
-      const settingsPaths = fileFor
-        ? [fileFor(tool)].filter((file) => file !== null)
-        : [...new Set([...(atHome ? [hookSettingsFile(tool, hookBaseDir, settingsRel)] : []), path.join(hookBaseDir, settingsRel)])];
-      for (const settingsPath of settingsPaths) {
+      // At HOME the file follows a moved tool home. Earlier releases wrote the default-home one: it
+      // goes first and leaves the records, which describe the moved file, for that file's pass.
+      const current = fileFor ? fileFor(tool) : path.join(hookBaseDir, settingsRel);
+      const moved = !fileFor && atHome ? hookSettingsFile(tool, hookBaseDir, settingsRel) : null;
+      const settingsPaths: { settingsPath: string; keepRecords?: true }[] = current === null ? []
+        : moved === null || moved === current ? [{ settingsPath: current }]
+          : [{ settingsPath: current, keepRecords: true }, { settingsPath: moved }];
+      for (const { settingsPath, keepRecords } of settingsPaths) {
         // Prefer main-file ownership when a legacy target names the same file.
         if (!teamOnly && mainFiles.has(await canonical(settingsPath))) continue;
         // Other installs use Codex's user hooks as their instruction channel.
@@ -605,6 +608,7 @@ async function discoverToolResources(
           res.hookFiles.push({ path: settingsPath, tool, manifestPath,
             ...(teamOnly ? { teamOnly, legacyManifestPath, mainCheckout } : {}),
             ...(teamHookProjectRoot ? { teamHookProjectRoot } : {}),
+            ...(keepRecords ? { keepRecords } : {}),
           });
         }
       }
@@ -2037,9 +2041,9 @@ async function executeRemoval(
   // An entry no record claims goes when it equals exactly one hook in the team's history (#993).
   // A file whose hooks could not be removed keeps the records that own them, in the data home (#993).
   const hooksLeft: Array<{ what: string; tool: string }> = [...alreadyLeft.hooks ?? []];
-  for (const { path: settingsPath, tool, manifestPath, teamOnly, legacyManifestPath, teamHookProjectRoot, mainCheckout } of plan.hookFiles) {
+  for (const { path: settingsPath, tool, manifestPath, teamOnly, legacyManifestPath, teamHookProjectRoot, mainCheckout, keepRecords } of plan.hookFiles) {
     try {
-      await reconcileHooks(settingsPath, tool, [], { removeAll: true, manifestPath, teamHookHistory: plan.teamHookHistory, codexTrust,
+      await reconcileHooks(settingsPath, tool, [], { removeAll: true, manifestPath, keepRecords, teamHookHistory: plan.teamHookHistory, codexTrust,
         ...(teamOnly ? { teamOnly, legacyManifestPath,
           // Uninstalling a partition removes this tool for the whole installation.
           mainCheckout: plan.sharedPartition && !mainCheckout?.worktreeScoped ? undefined : mainCheckout,
