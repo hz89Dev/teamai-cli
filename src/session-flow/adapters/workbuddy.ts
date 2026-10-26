@@ -194,16 +194,8 @@ export class WorkBuddyAdapter extends AgentAdapter {
     this.storageRoot = storageRoot;
   }
 
-  static isAvailable(): boolean {
-    return dirExists(sessionStoreDir('workbuddy', undefined));
-  }
-
   isReady(): boolean {
     return dirExists(this.storageRoot);
-  }
-
-  static getDefaultStoragePath(): string {
-    return sessionStoreDir('workbuddy', undefined);
   }
 
   private resolveProjectDir(projectPath?: string): string {

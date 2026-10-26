@@ -368,10 +368,6 @@ export class OpencodeAdapter extends AgentAdapter {
     return 'opencode';
   }
 
-  static getDefaultStoragePath(): string {
-    return sessionStoreDir('opencode', undefined);
-  }
-
   isReady(): boolean {
     return fs.existsSync(this.storageRoot);
   }

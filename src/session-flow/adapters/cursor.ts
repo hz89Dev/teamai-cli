@@ -132,16 +132,8 @@ export class CursorAdapter extends AgentAdapter {
     this.storageRoot = storageRoot ?? sessionStoreDir('cursor', undefined);
   }
 
-  static isAvailable(): boolean {
-    return dirExists(sessionStoreDir('cursor', undefined));
-  }
-
   isReady(): boolean {
     return dirExists(this.storageRoot);
-  }
-
-  static getDefaultStoragePath(): string {
-    return sessionStoreDir('cursor', undefined);
   }
 
   private resolveProjectDir(projectPath?: string): string {

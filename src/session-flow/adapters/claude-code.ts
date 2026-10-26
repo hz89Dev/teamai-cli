@@ -332,14 +332,6 @@ export class ClaudeCodeAdapter extends AgentAdapter {
     this.storageRoot = storageRoot ?? sessionStoreDir('claude-code', undefined);
   }
 
-  static isAvailable(): boolean {
-    return dirExists(sessionStoreDir('claude-code', undefined));
-  }
-
-  static getDefaultStoragePath(): string {
-    return sessionStoreDir('claude-code', undefined);
-  }
-
   isReady(): boolean {
     return dirExists(this.storageRoot);
   }

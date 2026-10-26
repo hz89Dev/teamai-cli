@@ -149,16 +149,8 @@ export class CodeBuddyAdapter extends AgentAdapter {
     this.storageRoot = storageRoot;
   }
 
-  static isAvailable(): boolean {
-    return dirExists(sessionStoreDir('codebuddy', undefined));
-  }
-
   isReady(): boolean {
     return dirExists(this.storageRoot);
-  }
-
-  static getDefaultStoragePath(): string {
-    return sessionStoreDir('codebuddy', undefined);
   }
 
   private resolveProjectDir(projectPath?: string): string {

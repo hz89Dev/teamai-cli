@@ -261,14 +261,6 @@ export class CodexAdapter extends AgentAdapter {
     this.storageRoot = storageRoot ?? sessionStoreDir('codex', undefined);
   }
 
-  static isAvailable(): boolean {
-    return dirExists(sessionStoreDir('codex', undefined));
-  }
-
-  static getDefaultStoragePath(): string {
-    return sessionStoreDir('codex', undefined);
-  }
-
   /**
    * Codex creates `sessions/` on its first session, so an installed Codex that
    * has not run one yet only has its root (or just the CLI); writeSession
