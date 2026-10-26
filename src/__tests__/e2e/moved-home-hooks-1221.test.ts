@@ -100,6 +100,21 @@ describe('hooks follow a moved CodeBuddy and OpenCode home (#1221, real CLI)', (
     expect(fs.existsSync(defaultPlugin)).toBe(false);
   });
 
+  it('hooks inject moves the Pi extension out of the default home', () => {
+    const moved = path.join(sandbox, 'pi');
+    const defaultExtension = path.join(home, '.pi', 'agent', 'extensions', 'teamai-hooks.ts');
+    env = { ...env, PI_CODING_AGENT_DIR: moved };
+    fs.writeFileSync(path.join(home, '.teamai', 'config.yaml'), fs.readFileSync(path.join(home, '.teamai', 'config.yaml'), 'utf8').replace('enabledAgents: [codebuddy, opencode]', 'enabledAgents: [pi]'));
+    fs.mkdirSync(moved);
+    fs.mkdirSync(path.dirname(defaultExtension), { recursive: true });
+    fs.writeFileSync(defaultExtension, '// [teamai] hooks extension, as an earlier release wrote it');
+
+    run('hooks', 'inject');
+
+    expect(fs.existsSync(path.join(moved, 'extensions', 'teamai-hooks.ts'))).toBe(true);
+    expect(fs.existsSync(defaultExtension)).toBe(false);
+  });
+
   it('hooks inject keeps the OpenCode plugin when the default config dir is a link to OPENCODE_CONFIG_DIR', () => {
     const moved = path.join(sandbox, 'oc');
     env = { ...env, XDG_CONFIG_HOME: '', OPENCODE_CONFIG_DIR: moved };
@@ -152,6 +167,18 @@ describe('hooks follow a moved CodeBuddy and OpenCode home (#1221, real CLI)', (
     spawn(...command.split(' '));
     fs.writeFileSync(defaultSettings, intact);
     run(...command.split(' '));
+
+    expect(hasTeamHook(movedSettings)).toBe(false);
+    expect(hasTeamHook(defaultSettings)).toBe(false);
+  });
+
+  it('a pull after the team changes a hook leaves no unowned copy of the old one in the default home', () => {
+    const { movedSettings, defaultSettings } = museTeamHook();
+    const hooksFile = path.join(home, '.teamai', 'team-repo', 'hooks', 'hooks.yaml');
+    fs.writeFileSync(hooksFile, fs.readFileSync(hooksFile, 'utf8').replace('echo company-check', 'echo company-check-v2'));
+
+    run('hooks', 'inject');
+    run('hooks', 'remove');
 
     expect(hasTeamHook(movedSettings)).toBe(false);
     expect(hasTeamHook(defaultSettings)).toBe(false);

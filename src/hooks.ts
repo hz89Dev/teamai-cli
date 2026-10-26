@@ -2,7 +2,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { realpathSync } from 'node:fs';
-import { lstat, readdir, rm } from 'node:fs/promises';
+import { lstat, readdir, realpath, rm } from 'node:fs/promises';
 import { readJson, readJsonObject, writeJson, readFileSafe, writeFile, expandHome, ensureDir, pathExists } from './utils/fs.js';
 import { log } from './utils/logger.js';
 import {
@@ -2897,6 +2897,31 @@ async function reconcileOpencodePlugin(baseDir: string, removeAll = false, insta
 }
 
 /**
+ * Remove teamai's hooks from the copy earlier releases wrote under `tool`'s
+ * default home, once its hooks have moved to `current` (#1221). It goes before
+ * the moved file's pass, judged by the records that pass then replaces: a team
+ * hook with no marker (Muse) whose record was replaced while the copy stayed
+ * would be left there with nothing to name it. A copy that is the same file
+ * through a link is left alone.
+ */
+async function clearEarlierHomeHooks(target: {
+  baseDir: string; settings: string; current: string; tool: string; manifestPath: string;
+  teamHookProjectRoot?: string; teamHookHistory?: TeamHookHistory;
+}): Promise<void> {
+  const earlier = path.join(target.baseDir, target.settings);
+  if (earlier === target.current || path.resolve(target.baseDir) !== path.resolve(getUserHome()) || !await pathExists(earlier)) return;
+  if (await realpath(earlier).catch(() => earlier) === await realpath(target.current).catch(() => target.current)) return;
+  try {
+    await reconcileHooks(earlier, target.tool, [], {
+      manifestPath: target.manifestPath, removeAll: true, keepRecords: true, teamHookHistory: target.teamHookHistory,
+      ...(target.teamHookProjectRoot ? { teamHookProjectRoot: target.teamHookProjectRoot } : {}),
+    });
+  } catch (e) {
+    log.warn(`Could not remove the hooks an earlier release left in ${earlier}: ${(e as Error).message}`);
+  }
+}
+
+/**
  * Reconcile the single teamai OMP extension.
  *
  * OMP auto-loads extensions from BOTH ~/.omp/agent/extensions (user) and
@@ -2989,7 +3014,11 @@ async function reconcilePiExtension(
     await removePiHooks();
     return;
   }
-  if (await isPiInstalled(baseDir, installedBaseDir)) await injectPiHooks();
+  if (!await isPiInstalled(baseDir, installedBaseDir)) return;
+  await injectPiHooks();
+  // And the extension earlier releases left under the default home (#1221).
+  const earlier = await earlierHookAdapterDir('pi-extension');
+  if (earlier) await removePiHooks(earlier);
 }
 
 /**
@@ -3316,6 +3345,10 @@ export async function reconcileHooksToAllTools(
             codexTrust: opts.codexTrust,
           });
         } else {
+          if (!opts.removeAll && !opts.builtinsOnly && !opts.settingsOnly && teamManifestPath) {
+            await clearEarlierHomeHooks({ baseDir, settings: paths.settings, current: settingsPath, tool, manifestPath: teamManifestPath,
+              teamHookProjectRoot: opts.teamHookProjectRoot, teamHookHistory: opts.teamHookHistory });
+          }
           await reconcileHooks(settingsPath, tool, fileDefs, {
             manifestPath: teamManifestPath,
             removeAll: opts.removeAll,
