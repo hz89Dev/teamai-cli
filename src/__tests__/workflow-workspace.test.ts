@@ -15,7 +15,13 @@ import type { LocalConfig } from '../types.js';
 import { syncWorkflowDefinitions } from '../workflow/cache.js';
 import * as engine from '../workflow/engine.js';
 import { leaseNext, parseReport, reportAttempt, startRun } from '../workflow/engine.js';
-import { _setDriverPollMs, runLocalDriver } from '../workflow/drivers/local/local-driver.js';
+import { _setDriverPollMs, runLocalDriver as realRunLocalDriver } from '../workflow/drivers/local/local-driver.js';
+const runLocalDriver: typeof realRunLocalDriver = async (config, runId, ...rest) => {
+  const done = await realRunLocalDriver(config, runId, ...rest);
+  const run = await readRun(config, runId);
+  console.error('PROBE', expect.getState().currentTestName, JSON.stringify(done), JSON.stringify(typeof run === 'object' ? run.steps : run));
+  return done;
+};
 import { cancelRun, respondProvenance, respondToHitl, retryStep } from '../workflow/run-controls.js';
 import type { LocalToolAdapter } from '../workflow/drivers/local/local-tool-adapter.js';
 import { parseWorkflow } from '../workflow/parse.js';

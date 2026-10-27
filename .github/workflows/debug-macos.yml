@@ -1,0 +1,24 @@
+name: debug-macos
+on:
+  push:
+    branches: [debug/macos-workflow-flake]
+jobs:
+  t:
+    strategy:
+      fail-fast: false
+      matrix:
+        n: [1, 2, 3, 4]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx vitest run 2>&1 | tee /tmp/out.log; true
+      - run: grep -E "PROBE|FAIL " /tmp/out.log | grep -v '"outcome":"succeeded"' > /tmp/probe.log; true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: probe-${{ matrix.n }}
+          path: /tmp/probe.log
