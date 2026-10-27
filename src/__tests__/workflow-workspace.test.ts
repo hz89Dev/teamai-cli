@@ -1135,7 +1135,7 @@ if (!read(['config', '--worktree', '--get', 'core.hooksPath']).endsWith('workflo
     expect(() => git(['config', '--local', '--get', 'core.hooksPath'], linked)).toThrow();
   });
 
-  it('merges every item branch when a step needs a for_each', async () => {
+  it('merges every item branch when a step needs a for_each', { repeats: 15 }, async () => {
     const { config, workspace, runId } = await fixture(`schemaVersion: v1alpha1
 name: build
 description: A later step reads files from each fan item.
@@ -2218,7 +2218,7 @@ steps:
     expect(done, JSON.stringify(done)).toMatchObject({ data: { done: { outcome: 'succeeded' } } });
   });
 
-  it('does not publish conflict markers a prompt left in an agent file', async () => {
+  it('does not publish conflict markers a prompt left in an agent file', { repeats: 15 }, async () => {
     const { config, workspace, runId } = await fixture(`schemaVersion: v1alpha1
 name: build
 description: Editing a conflict is not a resolution while conflict markers remain.
@@ -2293,7 +2293,7 @@ steps:
     expect(() => git(['show', `${branch}:.claude/settings.json`], workspace)).toThrow(/does not exist|not in /);
   });
 
-  it('does not publish conflict markers a prompt staged', async () => {
+  it('does not publish conflict markers a prompt staged', { repeats: 15 }, async () => {
     const { config, workspace, runId } = await fixture(`schemaVersion: v1alpha1
 name: build
 description: Staging a file does not resolve it while conflict markers remain.

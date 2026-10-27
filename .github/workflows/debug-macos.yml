@@ -7,7 +7,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        n: [1, 2, 3, 4]
+        n: [1, 2, 3, 4, 5, 6, 7, 8]
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,8 +16,9 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci --ignore-scripts
+      - run: npx vitest run src/__tests__/workflow-workspace.test.ts -t 'agent file|a prompt staged$|for_each' 2>&1 | tee /tmp/solo.log; true
       - run: npx vitest run 2>&1 | tee /tmp/out.log; true
-      - run: grep -E "PROBE|FAIL " /tmp/out.log | grep -v '"outcome":"succeeded"' > /tmp/probe.log; true
+      - run: cat /tmp/solo.log /tmp/out.log | grep -E "PROBE|FAIL |Tests " | grep -v '"outcome":"succeeded"' > /tmp/probe.log; true
       - uses: actions/upload-artifact@v4
         with:
           name: probe-${{ matrix.n }}
