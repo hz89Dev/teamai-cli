@@ -1,0 +1,6 @@
+/Users/pw-smoro/.claude/scratch/1787/screens-final/1440-overview.png overflow-x=0
+/Users/pw-smoro/.claude/scratch/1787/screens-final/1440-resources.png overflow-x=0
+/Users/pw-smoro/.claude/scratch/1787/screens-final/1440-rule-folder-open.png overflow-x=0
+/Users/pw-smoro/.claude/scratch/1787/screens-final/768-zh-dark-resources.png overflow-x=0
+/Users/pw-smoro/.claude/scratch/1787/screens-final/430-overview.png overflow-x=0
+/Users/pw-smoro/.claude/scratch/1787/screens-final/430-resources.png overflow-x=0
